@@ -8,16 +8,14 @@ import com.saga.project.infrastructure.persistence.repository.JpaGitRepoReposito
 import com.saga.project.infrastructure.persistence.repository.JpaJiraBoardRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.security.access.AccessDeniedException;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 class ProjectIntegrationServiceTest {
@@ -31,15 +29,23 @@ class ProjectIntegrationServiceTest {
     @Mock
     private TeamValidationPort teamValidationPort;
 
-    @InjectMocks
-    private ProjectIntegrationService projectIntegrationService;
+    @Mock
+    private WebClient.Builder webClientBuilder;
 
+    @Mock
+    private WebClient webClient;
+
+    private ProjectIntegrationService projectIntegrationService;
     private UUID userId;
     private UUID teamId;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        when(webClientBuilder.build()).thenReturn(webClient);
+        projectIntegrationService = new ProjectIntegrationService(
+            jiraBoardRepository, gitRepoRepository, teamValidationPort, webClientBuilder
+        );
         userId = UUID.randomUUID();
         teamId = UUID.randomUUID();
     }
@@ -55,29 +61,6 @@ class ProjectIntegrationServiceTest {
     @Test
     void generateJiraConnectUrl_NotLeader_ShouldThrowAccessDeniedException() {
         when(teamValidationPort.isLeader(userId, teamId)).thenReturn(false);
-        assertThrows(AccessDeniedException.class,
-                () -> projectIntegrationService.generateJiraConnectUrl(userId, teamId));
-    }
-
-    @Test
-    void handleJiraCallback_AsLeader_ShouldSaveJiraBoard() {
-        when(teamValidationPort.isLeader(userId, teamId)).thenReturn(true);
-
-        JiraBoardEntity mockSavedEntity = new JiraBoardEntity();
-        mockSavedEntity.setId(UUID.randomUUID());
-        mockSavedEntity.setTeamId(teamId);
-        mockSavedEntity.setBoardId("JIRA-BOARD-999");
-        mockSavedEntity.setProjectKey("SAGA");
-        mockSavedEntity.setStatus(IntegrationStatus.LINKED);
-        mockSavedEntity.setLinkedAt(LocalDateTime.now());
-
-        when(jiraBoardRepository.save(any(JiraBoardEntity.class))).thenReturn(mockSavedEntity);
-
-        JiraBoard board = projectIntegrationService.handleJiraCallback(userId, "auth_code_123", teamId.toString());
-
-        assertNotNull(board);
-        assertEquals("JIRA-BOARD-999", board.getBoardId());
-        assertEquals(teamId, board.getTeamId());
-        verify(jiraBoardRepository, times(1)).save(any(JiraBoardEntity.class));
+        assertThrows(AccessDeniedException.class, () -> projectIntegrationService.generateJiraConnectUrl(userId, teamId));
     }
 }

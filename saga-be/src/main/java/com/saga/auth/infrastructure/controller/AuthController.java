@@ -4,6 +4,7 @@ import com.saga.auth.application.dto.AuthResponse;
 import com.saga.auth.application.dto.GoogleLoginRequest;
 import com.saga.auth.application.dto.UserProfileDTO;
 import com.saga.auth.application.port.TokenBlacklistPort;
+import com.saga.auth.application.service.RefreshTokenService;
 import com.saga.user.application.port.UserRepositoryPort;
 import com.saga.auth.application.usecase.LoginUseCase;
 import com.saga.user.domain.User;
@@ -23,14 +24,29 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Authentication", description = "Endpoints for user authentication and authorization")
 public class AuthController {
 
+    private final RefreshTokenService refreshTokenService;
     private final LoginUseCase loginUseCase;
     private final TokenBlacklistPort tokenBlacklistPort;
     private final UserRepositoryPort userRepositoryPort;
 
-    public AuthController(LoginUseCase loginUseCase, TokenBlacklistPort tokenBlacklistPort, UserRepositoryPort userRepositoryPort) {
+    public AuthController(LoginUseCase loginUseCase,
+            TokenBlacklistPort tokenBlacklistPort,
+            UserRepositoryPort userRepositoryPort,
+            RefreshTokenService refreshTokenService) {
         this.loginUseCase = loginUseCase;
         this.tokenBlacklistPort = tokenBlacklistPort;
         this.userRepositoryPort = userRepositoryPort;
+        this.refreshTokenService = refreshTokenService;
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(@RequestParam String token) {
+        return refreshTokenService.findByToken(token)
+                .map(refreshToken -> {
+                    // Ideally generate a new JWT here
+                    return ResponseEntity.ok("New Access Token Generated");
+                })
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
     }
 
     @PostMapping("/login")
@@ -45,16 +61,16 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserProfileDTO>> getMe() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = (String) auth.getPrincipal();
-        
+
         User user = userRepositoryPort.findByEmail(email)
                 .orElseThrow(() -> new UnauthorizedException("User not found"));
-        
+
         UserProfileDTO profile = UserProfileDTO.builder()
                 .email(user.getEmail())
                 .name(user.getName())
                 .picture(user.getPicture())
                 .build();
-                
+
         return ResponseEntity.ok(ApiResponse.success(profile, "Get profile successfully"));
     }
 

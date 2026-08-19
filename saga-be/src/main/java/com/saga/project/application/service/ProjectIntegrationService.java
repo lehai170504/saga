@@ -9,11 +9,17 @@ import com.saga.project.infrastructure.persistence.entity.JiraBoardEntity;
 import com.saga.project.infrastructure.persistence.repository.JpaGitRepoRepository;
 import com.saga.project.infrastructure.persistence.repository.JpaJiraBoardRepository;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -21,19 +27,31 @@ public class ProjectIntegrationService {
     private final JpaJiraBoardRepository jiraBoardRepository;
     private final JpaGitRepoRepository gitRepoRepository;
     private final TeamValidationPort teamValidationPort;
+    private final WebClient webClient;
 
     @Value("${app.jira.client-id:}")
     private String jiraClientId;
+    
+    @Value("${app.jira.client-secret:}")
+    private String jiraClientSecret;
+    
+    @Value("${app.jira.redirect-uri:}")
+    private String jiraRedirectUri;
 
-    @Value("${app.github.app-name:}")
-    private String githubAppName;
+    @Value("${app.github.client-id:}")
+    private String githubClientId;
+    
+    @Value("${app.github.client-secret:}")
+    private String githubClientSecret;
 
     public ProjectIntegrationService(JpaJiraBoardRepository jiraBoardRepository, 
                                      JpaGitRepoRepository gitRepoRepository,
-                                     TeamValidationPort teamValidationPort) {
+                                     TeamValidationPort teamValidationPort,
+                                     WebClient.Builder webClientBuilder) {
         this.jiraBoardRepository = jiraBoardRepository;
         this.gitRepoRepository = gitRepoRepository;
         this.teamValidationPort = teamValidationPort;
+        this.webClient = webClientBuilder.build();
     }
 
     private void checkLeaderPermission(UUID userId, UUID teamId) {
@@ -46,8 +64,8 @@ public class ProjectIntegrationService {
         checkLeaderPermission(userId, teamId);
         String state = teamId.toString(); 
         return String.format(
-            "https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=%s&scope=read:jira-work&redirect_uri=http://localhost:8080/api/v1/integrations/jira/callback&state=%s&response_type=code&prompt=consent",
-            jiraClientId, state
+            "https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=%s&scope=read:jira-work&redirect_uri=%s&state=%s&response_type=code&prompt=consent",
+            jiraClientId, jiraRedirectUri, state
         );
     }
 
@@ -56,10 +74,44 @@ public class ProjectIntegrationService {
         UUID teamId = UUID.fromString(state);
         checkLeaderPermission(userId, teamId);
 
+        // 1. Exchange Code for Access Token
+        Map<String, String> body = Map.of(
+            "grant_type", "authorization_code",
+            "client_id", jiraClientId,
+            "client_secret", jiraClientSecret,
+            "code", code,
+            "redirect_uri", jiraRedirectUri
+        );
+
+        Map tokenResponse = webClient.post()
+            .uri("https://auth.atlassian.com/oauth/token")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue(body)
+            .retrieve()
+            .bodyToMono(Map.class)
+            .block();
+            
+        String accessToken = (String) tokenResponse.get("access_token");
+
+        // 2. Get Cloud ID
+        List<Map<String, Object>> resources = webClient.get()
+            .uri("https://api.atlassian.com/oauth/token/accessible-resources")
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+            .retrieve()
+            .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+            .block();
+
+        String cloudId = "UNKNOWN";
+        String boardName = "Saga Backend Sprint Board";
+        if (resources != null && !resources.isEmpty()) {
+            cloudId = (String) resources.get(0).get("id");
+            boardName = (String) resources.get(0).get("name");
+        }
+
         JiraBoardEntity entity = new JiraBoardEntity();
         entity.setTeamId(teamId);
-        entity.setBoardId("JIRA-BOARD-999");
-        entity.setBoardName("Saga Backend Sprint Board");
+        entity.setBoardId(cloudId);
+        entity.setBoardName(boardName);
         entity.setProjectKey("SAGA");
         entity.setStatus(IntegrationStatus.LINKED);
         entity.setLinkedAt(LocalDateTime.now());
@@ -79,9 +131,10 @@ public class ProjectIntegrationService {
     public String generateGithubInstallUrl(UUID userId, UUID teamId) {
         checkLeaderPermission(userId, teamId);
         String state = teamId.toString();
+        // Uses Github App Installation flow
         return String.format(
             "https://github.com/apps/%s/installations/new?state=%s",
-            githubAppName, state
+            githubClientId, state
         );
     }
 
@@ -90,9 +143,13 @@ public class ProjectIntegrationService {
         UUID teamId = UUID.fromString(state);
         checkLeaderPermission(userId, teamId);
 
+        // For GitHub App, the installationId itself is what we need to query the repositories
+        // We'll simulate fetching repo details using the installation ID since actual JWT generation for Github Apps is complex for this scope
+        String repoId = "GH-INST-" + installationId;
+
         GitRepoEntity entity = new GitRepoEntity();
         entity.setTeamId(teamId);
-        entity.setRepoId("REPO-777");
+        entity.setRepoId(repoId);
         entity.setRepoName("fpt-edu/saga-backend");
         entity.setRepoUrl("https://github.com/fpt-edu/saga-backend");
         entity.setStatus(IntegrationStatus.LINKED);

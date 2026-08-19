@@ -40,6 +40,7 @@ public class TraceabilitySyncService {
     @Async
     @Transactional
     public void handleGithubWebhook(GithubWebhookPayload payload) {
+        try {
         if (payload == null || payload.getRepository() == null || payload.getCommits() == null) {
             return; // Invalid payload
         }
@@ -90,6 +91,10 @@ public class TraceabilitySyncService {
                     }
                 }
             }
+        }
+        } catch (Exception e) {
+            // Log error so the async thread doesn't just die silently
+            System.err.println("Error processing webhook: " + e.getMessage());
         }
     }
 }
