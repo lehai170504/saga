@@ -1,6 +1,5 @@
 package com.saga.academic.application.service;
 
-import com.saga.academic.infrastructure.persistence.entity.ActiveSemesterSettingEntity;
 import com.saga.academic.infrastructure.persistence.entity.CourseEntity;
 import com.saga.academic.infrastructure.persistence.repository.JpaActiveSemesterRepository;
 import com.saga.academic.infrastructure.persistence.repository.JpaCourseRepository;
@@ -13,26 +12,27 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 class CourseRosterServiceTest {
 
     @Mock
     private JpaCourseRepository courseRepository;
-    
+
     @Mock
     private JpaActiveSemesterRepository activeSemesterRepository;
-    
+
     @Mock
     private JpaTeamRepository teamRepository;
-    
+
     @Mock
     private JpaTeamMemberRepository teamMemberRepository;
 
@@ -51,7 +51,19 @@ class CourseRosterServiceTest {
 
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
 
-        assertThrows(AccessDeniedException.class, () -> courseRosterService.downloadGroupingTemplate(courseId, lecturerId));
+        assertThrows(AccessDeniedException.class,
+                () -> courseRosterService.downloadGroupingTemplate(courseId, lecturerId));
+    }
+
+    @Test
+    void importTeamGrouping_FileSizeExceedsLimit_ShouldThrowException() {
+        org.springframework.web.multipart.MultipartFile mockFile = mock(
+                org.springframework.web.multipart.MultipartFile.class);
+        when(mockFile.getSize()).thenReturn(6L * 1024 * 1024); // 6MB
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> courseRosterService.importTeamGrouping(UUID.randomUUID(), UUID.randomUUID(), mockFile));
+        assertEquals("File size exceeds 5MB limit", ex.getMessage());
     }
 
     @Test
@@ -66,7 +78,7 @@ class CourseRosterServiceTest {
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(course));
 
         byte[] template = courseRosterService.downloadGroupingTemplate(courseId, lecturerId);
-        
+
         assertNotNull(template);
     }
 }

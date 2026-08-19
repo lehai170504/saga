@@ -71,11 +71,18 @@ public class CourseRosterService {
 
     @Transactional
     public void importTeamGrouping(UUID courseId, UUID lecturerId, MultipartFile file) {
+        if (file.getSize() > 5 * 1024 * 1024) { // 5MB limit
+            throw new IllegalArgumentException("File size exceeds 5MB limit");
+        }
+
         CourseEntity course = getCourseAndAuthorize(courseId, lecturerId);
         validateActiveSemester(course);
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
+            if (sheet.getLastRowNum() > 1000) {
+                throw new IllegalArgumentException("File exceeds maximum allowed rows (1000)");
+            }
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
                 if (row == null)
