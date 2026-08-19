@@ -1,0 +1,3 @@
+﻿ALTER TABLE identity_map ADD COLUMN name VARCHAR(255);
+ALTER TABLE identity_map ADD COLUMN email VARCHAR(255);
+ALTER TABLE identity_map ADD COLUMN connected_at TIMESTAMP;
