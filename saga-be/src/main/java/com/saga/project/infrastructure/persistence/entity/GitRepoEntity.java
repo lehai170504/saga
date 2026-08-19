@@ -14,7 +14,7 @@ public class GitRepoEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @Column(name = "project_id", nullable = false)
-    private UUID projectId;
+    private UUID teamId;
     @Column(name = "repo_id", nullable = false)
     private String repoId;
     @Column(name = "repo_name")

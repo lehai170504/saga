@@ -7,7 +7,7 @@ import java.util.UUID;
 @Builder
 public class GitRepo {
     private UUID id;
-    private UUID projectId;
+    private UUID teamId;
     private String repoId;
     private String repoName;
     private String repoUrl;

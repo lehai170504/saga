@@ -14,7 +14,7 @@ public class JiraBoardEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @Column(name = "project_id", nullable = false)
-    private UUID projectId;
+    private UUID teamId;
     @Column(name = "board_id", nullable = false)
     private String boardId;
     @Column(name = "board_name")

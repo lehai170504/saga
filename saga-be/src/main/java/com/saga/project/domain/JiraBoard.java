@@ -7,7 +7,7 @@ import java.util.UUID;
 @Builder
 public class JiraBoard {
     private UUID id;
-    private UUID projectId;
+    private UUID teamId;
     private String boardId;
     private String boardName;
     private String projectKey;
