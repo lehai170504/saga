@@ -31,12 +31,12 @@ public class AdminAcademicServiceImpl implements AdminAcademicService {
     @Override
     @Transactional
     public SubjectResponse createSubject(SubjectRequest request) {
-        if (subjectRepository.existsByCode(request.getSubjectCode())) {
+        if (subjectRepository.existsBySubjectCode(request.getSubjectCode())) {
             throw new BadRequestException("Subject code already exists.");
         }
         Subject entity = new Subject();
-        entity.setCode(request.getSubjectCode());
-        entity.setName(request.getSubjectName());
+        entity.setSubjectCode(request.getSubjectCode());
+        entity.setSubjectName(request.getSubjectName());
         entity = subjectRepository.save(entity);
         return mapToResponse(entity);
     }
@@ -46,12 +46,12 @@ public class AdminAcademicServiceImpl implements AdminAcademicService {
     public SubjectResponse updateSubject(UUID id, SubjectRequest request) {
         Subject entity = subjectRepository.findById(id)
                 .orElseThrow(() -> new BadRequestException("Subject not found."));
-        if (!entity.getCode().equals(request.getSubjectCode())
-                && subjectRepository.existsByCode(request.getSubjectCode())) {
+        if (!entity.getSubjectCode().equals(request.getSubjectCode())
+                && subjectRepository.existsBySubjectCode(request.getSubjectCode())) {
             throw new BadRequestException("Subject code already exists.");
         }
-        entity.setCode(request.getSubjectCode());
-        entity.setName(request.getSubjectName());
+        entity.setSubjectCode(request.getSubjectCode());
+        entity.setSubjectName(request.getSubjectName());
         entity = subjectRepository.save(entity);
         return mapToResponse(entity);
     }
@@ -73,11 +73,11 @@ public class AdminAcademicServiceImpl implements AdminAcademicService {
     @Override
     @Transactional
     public ClassResponse createClass(ClassRequest request) {
-        if (classRepository.existsByName(request.getClassCode())) {
+        if (classRepository.existsByClassCode(request.getClassCode())) {
             throw new BadRequestException("Class code already exists.");
         }
         Class entity = new Class();
-        entity.setName(request.getClassCode());
+        entity.setClassCode(request.getClassCode());
         entity = classRepository.save(entity);
         return mapToResponse(entity);
     }
@@ -87,10 +87,11 @@ public class AdminAcademicServiceImpl implements AdminAcademicService {
     public ClassResponse updateClass(UUID id, ClassRequest request) {
         Class entity = classRepository.findById(id)
                 .orElseThrow(() -> new BadRequestException("Class not found."));
-        if (!entity.getName().equals(request.getClassCode()) && classRepository.existsByName(request.getClassCode())) {
+        if (!entity.getClassCode().equals(request.getClassCode())
+                && classRepository.existsByClassCode(request.getClassCode())) {
             throw new BadRequestException("Class code already exists.");
         }
-        entity.setName(request.getClassCode());
+        entity.setClassCode(request.getClassCode());
         entity = classRepository.save(entity);
         return mapToResponse(entity);
     }
@@ -112,15 +113,15 @@ public class AdminAcademicServiceImpl implements AdminAcademicService {
     private SubjectResponse mapToResponse(Subject entity) {
         return SubjectResponse.builder()
                 .id(entity.getId())
-                .subjectCode(entity.getCode())
-                .subjectName(entity.getName())
+                .subjectCode(entity.getSubjectCode())
+                .subjectName(entity.getSubjectName())
                 .build();
     }
 
     private ClassResponse mapToResponse(Class entity) {
         return ClassResponse.builder()
                 .id(entity.getId())
-                .classCode(entity.getName())
+                .classCode(entity.getClassCode())
                 .build();
     }
 }

@@ -16,6 +16,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class IdentityMap {
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @Column(name = "internal_user_id", nullable = false)
     private UUID internalUserId;
