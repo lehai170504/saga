@@ -22,8 +22,8 @@ import com.saga.academic.service.CourseRosterService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import com.saga.academic.dto.SemesterDTO;
-import com.saga.academic.dto.CourseDTO;
 import com.saga.academic.service.AcademicQueryService;
+import com.saga.academic.service.CourseService;
 import java.util.UUID;
 
 @RestController
@@ -39,22 +39,25 @@ public class AdminAcademicController {
 
     @GetMapping("/courses")
     @Operation(summary = "Get Courses (Paginated)")
-    public ResponseEntity<ApiResponse<Page<CourseDTO>>> getCourses(Pageable pageable,
+    public ResponseEntity<ApiResponse<Page<CourseResponse>>> getCourses(Pageable pageable,
             @RequestParam(required = false) String search) {
-        return ResponseEntity.ok(ApiResponse.success(academicQueryService.getCourses(pageable, search), "Success"));
+        return ResponseEntity.ok(ApiResponse.success(courseService.getAllCourses(pageable), "Success"));
     }
 
     private final MasterDataService masterDataService;
     private final AcademicQueryService academicQueryService;
     private final CourseRosterService courseRosterService;
     private final AdminAcademicService adminAcademicService;
+    private final CourseService courseService;
 
     public AdminAcademicController(MasterDataService masterDataService, AcademicQueryService academicQueryService,
-            CourseRosterService courseRosterService, AdminAcademicService adminAcademicService) {
+            CourseRosterService courseRosterService, AdminAcademicService adminAcademicService,
+            CourseService courseService) {
         this.masterDataService = masterDataService;
         this.academicQueryService = academicQueryService;
         this.courseRosterService = courseRosterService;
         this.adminAcademicService = adminAcademicService;
+        this.courseService = courseService;
     }
 
     @PostMapping("/semesters")
@@ -86,14 +89,14 @@ public class AdminAcademicController {
     @PostMapping("/courses")
     @Operation(summary = "Create Course & Assign Lecturer", description = "Admin creates a new course and assigns it to a lecturer for the current active semester.")
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Course assigned to lecturer successfully"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid payload or lecturer not found"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Course created successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid payload or duplicate"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role")
     })
-    public ResponseEntity<ApiResponse<Void>> createCourse(@Valid @RequestBody CreateCourseRequest request) {
-        masterDataService.assignCourseToLecturer(request);
-        return ResponseEntity.ok(ApiResponse.success(null, "Course assigned to lecturer successfully"));
+    public ResponseEntity<ApiResponse<CourseResponse>> createCourse(@Valid @RequestBody CourseRequest request) {
+        return ResponseEntity
+                .ok(ApiResponse.success(courseService.createCourse(request), "Course created successfully"));
     }
 
     @GetMapping("/courses/{courseId}/roster-template")

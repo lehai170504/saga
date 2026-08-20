@@ -1,8 +1,9 @@
 package com.saga.academic.controller;
 
-import com.saga.academic.dto.CourseDTO;
+import com.saga.academic.dto.CourseResponse;
 import com.saga.academic.dto.TeamDTO;
 import com.saga.academic.service.AcademicQueryService;
+import com.saga.academic.service.CourseService;
 import com.saga.shared.response.ApiResponse;
 import com.saga.user.dto.UserResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,11 +27,13 @@ import java.util.UUID;
 public class LecturerAcademicController {
 
     private final AcademicQueryService academicQueryService;
+    private final CourseService courseService;
     private final JpaUserRepository userRepository;
 
     public LecturerAcademicController(AcademicQueryService academicQueryService,
-            JpaUserRepository userRepository) {
+            CourseService courseService, JpaUserRepository userRepository) {
         this.academicQueryService = academicQueryService;
+        this.courseService = courseService;
         this.userRepository = userRepository;
     }
 
@@ -42,9 +45,11 @@ public class LecturerAcademicController {
 
     @GetMapping
     @Operation(summary = "Get My Assigned Courses (Paginated)")
-    public ResponseEntity<ApiResponse<Page<CourseDTO>>> getMyCourses(Pageable pageable, @RequestParam(required = false) String search) {
+    public ResponseEntity<ApiResponse<Page<CourseResponse>>> getMyCourses(Pageable pageable,
+            @RequestParam(required = false) String search) {
         UUID lecturerId = getCurrentUser().getId();
-        return ResponseEntity.ok(ApiResponse.success(academicQueryService.getCoursesByLecturer(lecturerId, pageable, search), "Success"));
+        return ResponseEntity
+                .ok(ApiResponse.success(courseService.getLecturerCourses(lecturerId, pageable), "Success"));
     }
 
     @GetMapping("/{courseId}/students")
@@ -52,7 +57,8 @@ public class LecturerAcademicController {
     public ResponseEntity<ApiResponse<Page<UserResponseDTO>>> getCourseStudents(
             @PathVariable UUID courseId, Pageable pageable, @RequestParam(required = false) String search) {
         UUID lecturerId = getCurrentUser().getId();
-        return ResponseEntity.ok(ApiResponse.success(academicQueryService.getCourseStudents(courseId, lecturerId, pageable, search), "Success"));
+        return ResponseEntity.ok(ApiResponse
+                .success(academicQueryService.getCourseStudents(courseId, lecturerId, pageable, search), "Success"));
     }
 
     @GetMapping("/{courseId}/teams")
@@ -60,6 +66,7 @@ public class LecturerAcademicController {
     public ResponseEntity<ApiResponse<Page<TeamDTO>>> getCourseTeams(
             @PathVariable UUID courseId, Pageable pageable, @RequestParam(required = false) String search) {
         UUID lecturerId = getCurrentUser().getId();
-        return ResponseEntity.ok(ApiResponse.success(academicQueryService.getCourseTeams(courseId, lecturerId, pageable, search), "Success"));
+        return ResponseEntity.ok(ApiResponse
+                .success(academicQueryService.getCourseTeams(courseId, lecturerId, pageable, search), "Success"));
     }
 }

@@ -1,8 +1,9 @@
 package com.saga.academic.controller;
 
-import com.saga.academic.dto.CourseDTO;
+import com.saga.academic.dto.CourseResponse;
 import com.saga.academic.dto.TeamDetailDTO;
 import com.saga.academic.service.AcademicQueryService;
+import com.saga.academic.service.CourseService;
 import com.saga.shared.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,10 +26,13 @@ import java.util.UUID;
 public class StudentAcademicController {
 
     private final AcademicQueryService academicQueryService;
+    private final CourseService courseService;
     private final JpaUserRepository userRepository;
 
-    public StudentAcademicController(AcademicQueryService academicQueryService, JpaUserRepository userRepository) {
+    public StudentAcademicController(AcademicQueryService academicQueryService, CourseService courseService,
+            JpaUserRepository userRepository) {
         this.academicQueryService = academicQueryService;
+        this.courseService = courseService;
         this.userRepository = userRepository;
     }
 
@@ -38,12 +42,12 @@ public class StudentAcademicController {
         return userRepository.findByEmail(email).orElseThrow(() -> new UnauthorizedException("User not found"));
     }
 
-
     @GetMapping
     @Operation(summary = "Get My Courses (Paginated)")
-    public ResponseEntity<ApiResponse<Page<CourseDTO>>> getMyCourses(Pageable pageable, @RequestParam(required = false) String search) {
+    public ResponseEntity<ApiResponse<Page<CourseResponse>>> getMyCourses(Pageable pageable,
+            @RequestParam(required = false) String search) {
         UUID studentId = getCurrentUser().getId();
-        return ResponseEntity.ok(ApiResponse.success(academicQueryService.getCoursesByStudent(studentId, pageable, search), "Success"));
+        return ResponseEntity.ok(ApiResponse.success(courseService.getStudentCourses(studentId, pageable), "Success"));
     }
 
     @GetMapping("/{courseId}/my-team")
@@ -51,6 +55,7 @@ public class StudentAcademicController {
     public ResponseEntity<ApiResponse<TeamDetailDTO>> getMyTeam(
             @PathVariable UUID courseId) {
         UUID studentId = getCurrentUser().getId();
-        return ResponseEntity.ok(ApiResponse.success(academicQueryService.getMyTeamInCourse(courseId, studentId), "Success"));
+        return ResponseEntity
+                .ok(ApiResponse.success(academicQueryService.getMyTeamInCourse(courseId, studentId), "Success"));
     }
 }
