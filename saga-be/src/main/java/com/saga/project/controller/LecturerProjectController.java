@@ -18,7 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/lecturer/teams/{teamId}/project")
-@Tag(name = "6. Lecturer - Project Progress APIs", description = "Endpoints for Lecturers to view team project progress")
+@Tag(name = "06. Lecturer - Project Progress APIs", description = "Endpoints for Lecturers to view team project progress")
 public class LecturerProjectController {
 
     private final ProjectDataQueryService queryService;

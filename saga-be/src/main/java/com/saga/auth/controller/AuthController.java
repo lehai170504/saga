@@ -26,11 +26,11 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
-@Tag(name = "1. Auth APIs", description = "Endpoints for User Authentication & Authorization (Login, Logout, Token Refresh)")
+@Tag(name = "01. Auth APIs", description = "Endpoints for User Authentication & Authorization (Login, Logout, Token Refresh)")
 public class AuthController {
 
         private final RefreshTokenService refreshTokenService;
-        private final JwtProviderService jwtProviderPort;
+
         private final LoginUseCase loginUseCase;
         private final TokenBlacklistService tokenBlacklistPort;
         private final JpaUserRepository userRepository;
@@ -41,7 +41,6 @@ public class AuthController {
                         JpaUserRepository userRepository,
                         RefreshTokenService refreshTokenService) {
                 this.loginUseCase = loginUseCase;
-                this.jwtProviderPort = jwtProviderPort;
                 this.tokenBlacklistPort = tokenBlacklistPort;
                 this.userRepository = userRepository;
                 this.refreshTokenService = refreshTokenService;
@@ -125,4 +124,3 @@ public class AuthController {
                 return ResponseEntity.ok(ApiResponse.success("Logged out", "Logout successfully"));
         }
 }
-

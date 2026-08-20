@@ -19,7 +19,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/courses")
-@Tag(name = "5. Lecturer - Academic & Course APIs", description = "Endpoints for Lecturers to download templates and import team rosters via Excel")
+@Tag(name = "05. Lecturer - Academic & Course APIs", description = "Endpoints for Lecturers to download templates and import team rosters via Excel")
 public class LecturerTeamController {
     private final CourseRosterService courseRosterService;
     private final JpaUserRepository userRepository;

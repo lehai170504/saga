@@ -23,7 +23,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/lecturer/courses")
-@Tag(name = "5. Lecturer - Academic & Course APIs", description = "Endpoints for Lecturers to manage their assigned courses")
+@Tag(name = "05. Lecturer - Academic & Course APIs", description = "Endpoints for Lecturers to manage their assigned courses")
 public class LecturerAcademicController {
 
     private final AcademicQueryService academicQueryService;

@@ -19,7 +19,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/identities")
-@Tag(name = "2. Identity Mapping APIs", description = "Endpoints for linking/unlinking external accounts (GitHub, Jira)")
+@Tag(name = "02. Identity Mapping APIs", description = "Endpoints for linking/unlinking external accounts (GitHub, Jira)")
 public class IdentityController {
     private final IdentityService identityService;
     private final JpaUserRepository userRepository;

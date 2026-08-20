@@ -20,7 +20,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/integrations")
-@Tag(name = "8. Team Leader - Integrations", description = "Endpoints for Team Leaders to connect their Team to Jira and GitHub")
+@Tag(name = "08. Team Leader - Integrations", description = "Endpoints for Team Leaders to connect their Team to Jira and GitHub")
 public class ProjectIntegrationController {
 
     private final ProjectIntegrationService integrationService;

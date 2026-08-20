@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import jakarta.persistence.*;
 import java.util.List;
 import java.util.UUID;
+
 @Entity
 @Table(name = "tasks")
 @Data
@@ -15,10 +16,14 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Task {
-    @Id @GeneratedValue(strategy = GenerationType.UUID) private UUID id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
     private UUID boardId;
     private String sprintId;
     private String issueKey;
+    private Integer storyPoint;
+    private UUID assigneeId;
     @ElementCollection
     private List<String> labels;
 }

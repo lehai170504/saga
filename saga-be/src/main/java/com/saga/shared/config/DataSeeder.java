@@ -28,16 +28,16 @@ public class DataSeeder implements CommandLineRunner {
     }
 
     private void seedUser(String email, String name, Role role, String rawPassword) {
-        if (!userRepository.findByEmail(email).isPresent()) {
-            User user = new User();
+        User user = userRepository.findByEmail(email).orElse(new User());
+        if (user.getId() == null) {
             user.setId(UUID.randomUUID());
             user.setEmail(email);
-            user.setName(name);
-            user.setRole(role);
-            user.setStatus(UserStatus.ACTIVE);
-            user.setPassword(passwordEncoder.encode(rawPassword));
-            user.setPicture("https://ui-avatars.com/api/?name=" + name.replace(" ", "+"));
-            userRepository.save(user);
         }
+        user.setName(name);
+        user.setRole(role);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setPassword(passwordEncoder.encode(rawPassword));
+        user.setPicture("https://ui-avatars.com/api/?name=" + name.replace(" ", "+"));
+        userRepository.save(user);
     }
 }

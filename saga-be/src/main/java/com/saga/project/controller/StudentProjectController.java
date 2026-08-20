@@ -18,7 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/student/teams/{teamId}/project")
-@Tag(name = "7. Student APIs", description = "Endpoints for Students to view the Jira/GitHub progress of their teams")
+@Tag(name = "07. Student APIs", description = "Endpoints for Students to view the Jira/GitHub progress of their teams")
 public class StudentProjectController {
 
     private final ProjectDataQueryService queryService;

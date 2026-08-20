@@ -22,7 +22,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/users")
-@Tag(name = "3. Admin - User APIs", description = "Admin User Management (e.g., getting lists of lecturers)")
+@Tag(name = "03. Admin - User APIs", description = "Admin User Management (e.g., getting lists of lecturers)")
 public class AdminUserController {
 
     @GetMapping("/students")

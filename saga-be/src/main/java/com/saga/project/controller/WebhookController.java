@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/webhooks")
-@Tag(name = "9. Webhooks", description = "System endpoints for receiving events from external providers (GitHub, Jira)")
+@Tag(name = "09. Webhooks", description = "System endpoints for receiving events from external providers (GitHub, Jira)")
 public class WebhookController {
 
     private final TraceabilitySyncService syncService;

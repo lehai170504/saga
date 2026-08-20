@@ -28,7 +28,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/admin/academic")
-@Tag(name = "4. Admin - Academic APIs", description = "Endpoints for Admin to manage Semesters and Courses")
+@Tag(name = "04. Admin - Academic APIs", description = "Endpoints for Admin to manage Semesters and Courses")
 public class AdminAcademicController {
     @GetMapping("/semesters")
     @Operation(summary = "Get Semesters (Paginated)")

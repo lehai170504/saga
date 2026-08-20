@@ -22,7 +22,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/student/courses")
-@Tag(name = "7. Student APIs", description = "Endpoints for Students to view their courses and teams")
+@Tag(name = "07. Student APIs", description = "Endpoints for Students to view their courses and teams")
 public class StudentAcademicController {
 
     private final AcademicQueryService academicQueryService;
