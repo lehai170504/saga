@@ -1,0 +1,80 @@
+package com.saga.project.controller;
+
+import com.saga.project.dto.CommitDTO;
+import com.saga.project.dto.ProjectMetricsDTO;
+import com.saga.project.dto.TaskDTO;
+import com.saga.project.service.ProjectDataQueryService;
+import com.saga.shared.response.ApiResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/v1/lecturer/teams/{teamId}/project")
+@Tag(name = "6. Lecturer - Project Progress APIs", description = "Endpoints for Lecturers to view team project progress")
+public class LecturerProjectController {
+
+    private final ProjectDataQueryService queryService;
+
+    public LecturerProjectController(ProjectDataQueryService queryService) {
+        this.queryService = queryService;
+    }
+
+    @GetMapping("/metrics")
+    @Operation(summary = "Get Project Metrics", description = "Fetches overall statistics (Total Tasks, Total Commits) and integration status (Jira/GitHub synced) for a specific team.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fetched metrics successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this team's course")
+    })
+    public ResponseEntity<ApiResponse<ProjectMetricsDTO>> getMetrics(
+            @PathVariable UUID teamId, Authentication auth) {
+        UUID userId = UUID.fromString(auth.getPrincipal().toString());
+        queryService.authorizeProjectAccess(userId, teamId, "LECTURER");
+
+        return ResponseEntity.ok(ApiResponse.success(
+                queryService.getProjectMetrics(teamId),
+                "Lấy thông số thành công"));
+    }
+
+    @GetMapping("/tasks")
+    @Operation(summary = "Get Team Tasks (Paginated)", description = "Fetches a paginated list of Jira tasks assigned to this team.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fetched tasks successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this team's course")
+    })
+    public ResponseEntity<ApiResponse<Page<TaskDTO>>> getTasks(
+            @PathVariable UUID teamId, Pageable pageable, Authentication auth) {
+        UUID userId = UUID.fromString(auth.getPrincipal().toString());
+        queryService.authorizeProjectAccess(userId, teamId, "LECTURER");
+
+        return ResponseEntity.ok(ApiResponse.success(
+                queryService.getTeamTasks(teamId, pageable),
+                "Lấy danh sách task thành công"));
+    }
+
+    @GetMapping("/commits")
+    @Operation(summary = "Get Team Commits (Paginated)", description = "Fetches a paginated list of GitHub commits pushed by this team.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fetched commits successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this team's course")
+    })
+    public ResponseEntity<ApiResponse<Page<CommitDTO>>> getCommits(
+            @PathVariable UUID teamId, Pageable pageable, Authentication auth) {
+        UUID userId = UUID.fromString(auth.getPrincipal().toString());
+        queryService.authorizeProjectAccess(userId, teamId, "LECTURER");
+
+        return ResponseEntity.ok(ApiResponse.success(
+                queryService.getTeamCommits(teamId, pageable),
+                "Lấy danh sách commit thành công"));
+    }
+}

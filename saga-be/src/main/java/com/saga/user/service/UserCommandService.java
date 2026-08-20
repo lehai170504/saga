@@ -1,0 +1,26 @@
+package com.saga.user.service;
+
+import com.saga.user.repository.JpaUserRepository;
+import com.saga.user.entity.User;
+import com.saga.user.entity.UserStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
+
+@Service
+public class UserCommandService {
+    private final JpaUserRepository userRepository;
+
+    public UserCommandService(JpaUserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Transactional
+    public void updateUserStatus(UUID userId, UserStatus status) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        user.setStatus(status);
+        userRepository.save(user);
+    }
+}

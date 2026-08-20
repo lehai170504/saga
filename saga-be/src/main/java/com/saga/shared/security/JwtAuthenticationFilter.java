@@ -1,7 +1,7 @@
 package com.saga.shared.security;
 
-import com.saga.auth.application.port.JwtProviderPort;
-import com.saga.auth.application.port.TokenBlacklistPort;
+import com.saga.auth.service.JwtProviderService;
+import com.saga.auth.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,10 +18,10 @@ import java.util.Collections;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtProviderPort jwtProviderPort;
-    private final TokenBlacklistPort tokenBlacklistPort;
+    private final JwtProviderService jwtProviderPort;
+    private final TokenBlacklistService tokenBlacklistPort;
 
-    public JwtAuthenticationFilter(JwtProviderPort jwtProviderPort, TokenBlacklistPort tokenBlacklistPort) {
+    public JwtAuthenticationFilter(JwtProviderService jwtProviderPort, TokenBlacklistService tokenBlacklistPort) {
         this.jwtProviderPort = jwtProviderPort;
         this.tokenBlacklistPort = tokenBlacklistPort;
     }

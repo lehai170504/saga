@@ -1,9 +1,9 @@
 package com.saga.shared.config;
 
-import com.saga.user.domain.Role;
-import com.saga.user.domain.UserStatus;
-import com.saga.user.infrastructure.persistence.entity.UserEntity;
-import com.saga.user.infrastructure.persistence.repository.JpaUserRepository;
+import com.saga.user.entity.Role;
+import com.saga.user.entity.UserStatus;
+import com.saga.user.entity.User;
+import com.saga.user.repository.JpaUserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -29,7 +29,7 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedUser(String email, String name, Role role, String rawPassword) {
         if (!userRepository.findByEmail(email).isPresent()) {
-            UserEntity user = new UserEntity();
+            User user = new User();
             user.setId(UUID.randomUUID());
             user.setEmail(email);
             user.setName(name);
