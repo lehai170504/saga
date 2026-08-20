@@ -4,10 +4,17 @@ import com.saga.academic.infrastructure.persistence.entity.ActiveSemesterSetting
 import com.saga.academic.infrastructure.persistence.entity.CourseEntity;
 import com.saga.academic.infrastructure.persistence.entity.TeamEntity;
 import com.saga.academic.infrastructure.persistence.entity.TeamMemberEntity;
+import com.saga.academic.infrastructure.persistence.entity.CourseStudentEntity;
 import com.saga.academic.infrastructure.persistence.repository.JpaActiveSemesterRepository;
 import com.saga.academic.infrastructure.persistence.repository.JpaCourseRepository;
 import com.saga.academic.infrastructure.persistence.repository.JpaTeamMemberRepository;
 import com.saga.academic.infrastructure.persistence.repository.JpaTeamRepository;
+import com.saga.academic.infrastructure.persistence.repository.JpaCourseStudentRepository;
+import com.saga.user.application.port.UserRepositoryPort;
+import com.saga.user.domain.User;
+import com.saga.user.domain.Role;
+import com.saga.user.domain.UserStatus;
+import com.saga.shared.service.EmailService;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -20,6 +27,8 @@ import java.io.ByteArrayOutputStream;
 import java.util.List;
 import java.util.UUID;
 import org.apache.poi.ss.usermodel.DataFormatter;
+import java.util.Optional;
+import java.util.ArrayList;
 
 @Service
 public class CourseRosterService {
@@ -27,19 +36,30 @@ public class CourseRosterService {
     private final JpaActiveSemesterRepository activeSemesterRepository;
     private final JpaTeamRepository teamRepository;
     private final JpaTeamMemberRepository teamMemberRepository;
+    private final JpaCourseStudentRepository courseStudentRepository;
+    private final UserRepositoryPort userRepositoryPort;
+    private final EmailService emailService;
 
     public CourseRosterService(JpaCourseRepository courseRepository,
             JpaActiveSemesterRepository activeSemesterRepository, JpaTeamRepository teamRepository,
-            JpaTeamMemberRepository teamMemberRepository) {
+            JpaTeamMemberRepository teamMemberRepository, JpaCourseStudentRepository courseStudentRepository,
+            UserRepositoryPort userRepositoryPort, EmailService emailService) {
         this.courseRepository = courseRepository;
         this.activeSemesterRepository = activeSemesterRepository;
         this.teamRepository = teamRepository;
         this.teamMemberRepository = teamMemberRepository;
+        this.courseStudentRepository = courseStudentRepository;
+        this.userRepositoryPort = userRepositoryPort;
+        this.emailService = emailService;
+    }
+
+    private CourseEntity getCourse(UUID courseId) {
+        return courseRepository.findById(courseId)
+                .orElseThrow(() -> new IllegalArgumentException("Course not found"));
     }
 
     private CourseEntity getCourseAndAuthorize(UUID courseId, UUID lecturerId) {
-        CourseEntity course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new IllegalArgumentException("Course not found"));
+        CourseEntity course = getCourse(courseId);
         if (!course.getInstructorId().equals(lecturerId)) {
             throw new AccessDeniedException("You are not authorized to manage this course's roster");
         }
@@ -53,15 +73,102 @@ public class CourseRosterService {
         }
     }
 
+    // ==========================================
+    // ADMIN: ROSTER MANAGEMENT
+    // ==========================================
+
+    public byte[] downloadRosterTemplate(UUID courseId) {
+        getCourse(courseId); // validate exists
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Student Roster");
+            Row headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue("Email");
+            headerRow.createCell(1).setCellValue("Full Name (Optional)");
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating template", e);
+        }
+    }
+
+    @Transactional
+    public void importRoster(UUID courseId, MultipartFile file) {
+        CourseEntity course = getCourse(courseId);
+        validateActiveSemester(course);
+
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null) continue;
+                DataFormatter formatter = new DataFormatter();
+                String email = formatter.formatCellValue(row.getCell(0)).trim();
+                String name = formatter.formatCellValue(row.getCell(1)).trim();
+
+                if (email.isEmpty()) continue;
+
+                // Create user if not exists
+                Optional<User> existingUser = userRepositoryPort.findByEmail(email);
+                User user;
+                boolean isNewUser = false;
+                if (existingUser.isEmpty()) {
+                    user = User.builder()
+                        .id(UUID.randomUUID())
+                        .email(email)
+                        .name(name.isEmpty() ? email.split("@")[0] : name)
+                        .role(Role.STUDENT)
+                        .status(UserStatus.PENDING)
+                        .build();
+                    user = userRepositoryPort.save(user);
+                    isNewUser = true;
+                } else {
+                    user = existingUser.get();
+                }
+
+                // Add to course_students
+                Optional<CourseStudentEntity> existingCourseStudent = courseStudentRepository.findByCourseIdAndStudentId(courseId, user.getId());
+                if (existingCourseStudent.isEmpty()) {
+                    CourseStudentEntity cse = new CourseStudentEntity();
+                    cse.setCourseId(courseId);
+                    cse.setStudentId(user.getId());
+                    courseStudentRepository.save(cse);
+                    
+                    // Send Email
+                    emailService.sendCourseEnrollmentEmail(email, course.getId().toString());
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error processing roster file", e);
+        }
+    }
+
+    // ==========================================
+    // LECTURER: TEAM GROUPING
+    // ==========================================
+
     public byte[] downloadGroupingTemplate(UUID courseId, UUID lecturerId) {
-        getCourseAndAuthorize(courseId, lecturerId);
+        CourseEntity course = getCourseAndAuthorize(courseId, lecturerId);
 
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Team Grouping");
             Row headerRow = sheet.createRow(0);
-            headerRow.createCell(0).setCellValue("Student UUID");
-            headerRow.createCell(1).setCellValue("Team Name");
-            headerRow.createCell(2).setCellValue("Is Leader (TRUE/FALSE)");
+            headerRow.createCell(0).setCellValue("Email");
+            headerRow.createCell(1).setCellValue("Full Name");
+            headerRow.createCell(2).setCellValue("Team Name");
+            headerRow.createCell(3).setCellValue("Is Leader (TRUE/FALSE)");
+
+            // Pre-fill with enrolled students
+            List<CourseStudentEntity> courseStudents = courseStudentRepository.findAll().stream().filter(cs -> cs.getCourseId().equals(courseId)).toList();
+            int rowIndex = 1;
+            for (CourseStudentEntity cs : courseStudents) {
+                User student = userRepositoryPort.findById(cs.getStudentId()).orElse(null);
+                if (student != null) {
+                    Row row = sheet.createRow(rowIndex++);
+                    row.createCell(0).setCellValue(student.getEmail());
+                    row.createCell(1).setCellValue(student.getName());
+                }
+            }
+            
             workbook.write(out);
             return out.toByteArray();
         } catch (Exception e) {
@@ -71,26 +178,22 @@ public class CourseRosterService {
 
     @Transactional
     public void importTeamGrouping(UUID courseId, UUID lecturerId, MultipartFile file) {
-        if (file.getSize() > 5 * 1024 * 1024) { // 5MB limit
-            throw new IllegalArgumentException("File size exceeds 5MB limit");
-        }
-
         CourseEntity course = getCourseAndAuthorize(courseId, lecturerId);
         validateActiveSemester(course);
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
-            if (sheet.getLastRowNum() > 1000) {
-                throw new IllegalArgumentException("File exceeds maximum allowed rows (1000)");
-            }
             for (int i = 1; i <= sheet.getLastRowNum(); i++) {
                 Row row = sheet.getRow(i);
-                if (row == null)
-                    continue;
+                if (row == null) continue;
                 DataFormatter formatter = new DataFormatter();
-                String studentIdStr = formatter.formatCellValue(row.getCell(0));
-                String teamName = formatter.formatCellValue(row.getCell(1));
-                boolean isLeader = Boolean.parseBoolean(formatter.formatCellValue(row.getCell(2)));
+                String email = formatter.formatCellValue(row.getCell(0)).trim();
+                String teamName = formatter.formatCellValue(row.getCell(2)).trim();
+                boolean isLeader = Boolean.parseBoolean(formatter.formatCellValue(row.getCell(3)));
+
+                if (email.isEmpty() || teamName.isEmpty()) continue;
+
+                User student = userRepositoryPort.findByEmail(email).orElseThrow(() -> new IllegalArgumentException("Student with email " + email + " not found"));
 
                 TeamEntity team = teamRepository.findByNameAndCourseId(teamName, courseId).orElseGet(() -> {
                     TeamEntity newTeam = new TeamEntity();
@@ -99,9 +202,10 @@ public class CourseRosterService {
                     return teamRepository.save(newTeam);
                 });
 
+                // Check if already in a team
                 TeamMemberEntity member = new TeamMemberEntity();
                 member.setTeamId(team.getId());
-                member.setStudentId(UUID.fromString(studentIdStr));
+                member.setStudentId(student.getId());
                 member.setIsLeader(isLeader);
                 teamMemberRepository.save(member);
             }

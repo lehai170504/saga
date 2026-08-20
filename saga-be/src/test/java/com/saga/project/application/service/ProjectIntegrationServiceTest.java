@@ -1,9 +1,6 @@
 package com.saga.project.application.service;
 
 import com.saga.project.application.port.TeamValidationPort;
-import com.saga.project.domain.IntegrationStatus;
-import com.saga.project.domain.JiraBoard;
-import com.saga.project.infrastructure.persistence.entity.JiraBoardEntity;
 import com.saga.project.infrastructure.persistence.repository.JpaGitRepoRepository;
 import com.saga.project.infrastructure.persistence.repository.JpaJiraBoardRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,8 +41,7 @@ class ProjectIntegrationServiceTest {
         MockitoAnnotations.openMocks(this);
         when(webClientBuilder.build()).thenReturn(webClient);
         projectIntegrationService = new ProjectIntegrationService(
-            jiraBoardRepository, gitRepoRepository, teamValidationPort, webClientBuilder
-        );
+                jiraBoardRepository, gitRepoRepository, teamValidationPort, webClientBuilder);
         userId = UUID.randomUUID();
         teamId = UUID.randomUUID();
     }
@@ -61,6 +57,7 @@ class ProjectIntegrationServiceTest {
     @Test
     void generateJiraConnectUrl_NotLeader_ShouldThrowAccessDeniedException() {
         when(teamValidationPort.isLeader(userId, teamId)).thenReturn(false);
-        assertThrows(AccessDeniedException.class, () -> projectIntegrationService.generateJiraConnectUrl(userId, teamId));
+        assertThrows(AccessDeniedException.class,
+                () -> projectIntegrationService.generateJiraConnectUrl(userId, teamId));
     }
 }

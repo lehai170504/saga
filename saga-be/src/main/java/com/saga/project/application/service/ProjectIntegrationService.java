@@ -31,23 +31,23 @@ public class ProjectIntegrationService {
 
     @Value("${app.jira.client-id:}")
     private String jiraClientId;
-    
+
     @Value("${app.jira.client-secret:}")
     private String jiraClientSecret;
-    
+
     @Value("${app.jira.redirect-uri:}")
     private String jiraRedirectUri;
 
     @Value("${app.github.client-id:}")
     private String githubClientId;
-    
+
     @Value("${app.github.client-secret:}")
     private String githubClientSecret;
 
-    public ProjectIntegrationService(JpaJiraBoardRepository jiraBoardRepository, 
-                                     JpaGitRepoRepository gitRepoRepository,
-                                     TeamValidationPort teamValidationPort,
-                                     WebClient.Builder webClientBuilder) {
+    public ProjectIntegrationService(JpaJiraBoardRepository jiraBoardRepository,
+            JpaGitRepoRepository gitRepoRepository,
+            TeamValidationPort teamValidationPort,
+            WebClient.Builder webClientBuilder) {
         this.jiraBoardRepository = jiraBoardRepository;
         this.gitRepoRepository = gitRepoRepository;
         this.teamValidationPort = teamValidationPort;
@@ -62,11 +62,10 @@ public class ProjectIntegrationService {
 
     public String generateJiraConnectUrl(UUID userId, UUID teamId) {
         checkLeaderPermission(userId, teamId);
-        String state = teamId.toString(); 
+        String state = teamId.toString();
         return String.format(
-            "https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=%s&scope=read:jira-work&redirect_uri=%s&state=%s&response_type=code&prompt=consent",
-            jiraClientId, jiraRedirectUri, state
-        );
+                "https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=%s&scope=read:jira-work&redirect_uri=%s&state=%s&response_type=code&prompt=consent",
+                jiraClientId, jiraRedirectUri, state);
     }
 
     @Transactional
@@ -76,30 +75,30 @@ public class ProjectIntegrationService {
 
         // 1. Exchange Code for Access Token
         Map<String, String> body = Map.of(
-            "grant_type", "authorization_code",
-            "client_id", jiraClientId,
-            "client_secret", jiraClientSecret,
-            "code", code,
-            "redirect_uri", jiraRedirectUri
-        );
+                "grant_type", "authorization_code",
+                "client_id", jiraClientId,
+                "client_secret", jiraClientSecret,
+                "code", code,
+                "redirect_uri", jiraRedirectUri);
 
         Map tokenResponse = webClient.post()
-            .uri("https://auth.atlassian.com/oauth/token")
-            .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue(body)
-            .retrieve()
-            .bodyToMono(Map.class)
-            .block();
-            
+                .uri("https://auth.atlassian.com/oauth/token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
+
         String accessToken = (String) tokenResponse.get("access_token");
 
         // 2. Get Cloud ID
         List<Map<String, Object>> resources = webClient.get()
-            .uri("https://api.atlassian.com/oauth/token/accessible-resources")
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
-            .retrieve()
-            .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
-            .block();
+                .uri("https://api.atlassian.com/oauth/token/accessible-resources")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
+                })
+                .block();
 
         String cloudId = "UNKNOWN";
         String boardName = "Saga Backend Sprint Board";
@@ -133,9 +132,8 @@ public class ProjectIntegrationService {
         String state = teamId.toString();
         // Uses Github App Installation flow
         return String.format(
-            "https://github.com/apps/%s/installations/new?state=%s",
-            githubClientId, state
-        );
+                "https://github.com/apps/%s/installations/new?state=%s",
+                githubClientId, state);
     }
 
     @Transactional
@@ -143,8 +141,10 @@ public class ProjectIntegrationService {
         UUID teamId = UUID.fromString(state);
         checkLeaderPermission(userId, teamId);
 
-        // For GitHub App, the installationId itself is what we need to query the repositories
-        // We'll simulate fetching repo details using the installation ID since actual JWT generation for Github Apps is complex for this scope
+        // For GitHub App, the installationId itself is what we need to query the
+        // repositories
+        // We'll simulate fetching repo details using the installation ID since actual
+        // JWT generation for Github Apps is complex for this scope
         String repoId = "GH-INST-" + installationId;
 
         GitRepoEntity entity = new GitRepoEntity();

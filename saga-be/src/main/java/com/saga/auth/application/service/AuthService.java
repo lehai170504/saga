@@ -17,6 +17,11 @@ import com.saga.user.domain.User;
 import com.saga.user.domain.UserStatus;
 import com.saga.shared.exception.UnauthorizedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.saga.auth.application.dto.LocalLoginRequest;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
+import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -29,15 +34,25 @@ public class AuthService implements LoginUseCase {
     private final StudentRepositoryPort studentRepositoryPort;
     private final LecturerRepositoryPort lecturerRepositoryPort;
     private final JwtProviderPort jwtProviderPort;
+    private final PasswordEncoder passwordEncoder;
 
-    private static final Pattern STUDENT_EMAIL_PATTERN = Pattern.compile("^[a-zA-Z]+([a-zA-Z]{2}\\d{6})@fpt\\.edu\\.vn$", Pattern.CASE_INSENSITIVE);
+    @Value("#{'${app.auth.admin-emails:}'.split(',')}")
+    private List<String> adminEmails;
 
-    public AuthService(GoogleAuthPort googleAuthPort, 
-                       UserRepositoryPort userRepositoryPort,
-                       StudentRepositoryPort studentRepositoryPort,
-                       LecturerRepositoryPort lecturerRepositoryPort,
-                       JwtProviderPort jwtProviderPort) {
+    @Value("#{'${app.auth.lecturer-emails:}'.split(',')}")
+    private List<String> lecturerEmails;
+
+    private static final Pattern STUDENT_EMAIL_PATTERN = Pattern
+            .compile("^[a-zA-Z]+([a-zA-Z]{2}\\d{6})@fpt\\.edu\\.vn$", Pattern.CASE_INSENSITIVE);
+
+    public AuthService(GoogleAuthPort googleAuthPort,
+            UserRepositoryPort userRepositoryPort,
+            StudentRepositoryPort studentRepositoryPort,
+            LecturerRepositoryPort lecturerRepositoryPort,
+            JwtProviderPort jwtProviderPort,
+            PasswordEncoder passwordEncoder) {
         this.googleAuthPort = googleAuthPort;
+        this.passwordEncoder = passwordEncoder;
         this.userRepositoryPort = userRepositoryPort;
         this.studentRepositoryPort = studentRepositoryPort;
         this.lecturerRepositoryPort = lecturerRepositoryPort;
@@ -50,7 +65,7 @@ public class AuthService implements LoginUseCase {
         String email = profile.getEmail().toLowerCase();
 
         User user = userRepositoryPort.findByEmail(email).orElse(null);
-        
+
         if (user == null) {
             user = User.builder()
                     .id(UUID.randomUUID())
@@ -60,10 +75,23 @@ public class AuthService implements LoginUseCase {
                     .status(UserStatus.ACTIVE)
                     .build();
 
-            if (email.endsWith("@fpt.edu.vn")) {
+            if (adminEmails.contains(email)) {
+                user.setRole(Role.ADMIN);
+                user = userRepositoryPort.save(user);
+            } else if (lecturerEmails.contains(email) || email.endsWith("@fe.edu.vn")) {
+                user.setRole(Role.LECTURER);
+                user = userRepositoryPort.save(user);
+
+                Lecturer lecturer = Lecturer.builder()
+                        .id(UUID.randomUUID())
+                        .userId(user.getId())
+                        .build();
+                lecturerRepositoryPort.save(lecturer);
+            } else if (email.endsWith("@fpt.edu.vn") || email.endsWith("@gmail.com")) { // Allowing @gmail.com for
+                                                                                        // student test accounts as well
                 user.setRole(Role.STUDENT);
                 user = userRepositoryPort.save(user);
-                
+
                 String studentCode = extractStudentCode(email);
                 Student student = Student.builder()
                         .id(UUID.randomUUID())
@@ -71,18 +99,8 @@ public class AuthService implements LoginUseCase {
                         .studentCode(studentCode)
                         .build();
                 studentRepositoryPort.save(student);
-                
-            } else if (email.endsWith("@fe.edu.vn")) {
-                user.setRole(Role.LECTURER);
-                user = userRepositoryPort.save(user);
-                
-                Lecturer lecturer = Lecturer.builder()
-                        .id(UUID.randomUUID())
-                        .userId(user.getId())
-                        .build();
-                lecturerRepositoryPort.save(lecturer);
             } else {
-                throw new UnauthorizedException("Invalid email domain.");
+                throw new UnauthorizedException("Invalid email domain or not whitelisted.");
             }
         }
 
@@ -90,8 +108,13 @@ public class AuthService implements LoginUseCase {
             throw new UnauthorizedException("Your account is banned.");
         }
 
+        if (UserStatus.PENDING.equals(user.getStatus())) {
+            user.setStatus(UserStatus.ACTIVE);
+            userRepositoryPort.save(user);
+        }
+
         String token = jwtProviderPort.generateToken(user);
-        
+
         return AuthResponse.builder()
                 .accessToken(token)
                 .role(user.getRole().name())
@@ -102,7 +125,7 @@ public class AuthService implements LoginUseCase {
                         .build())
                 .build();
     }
-    
+
     private String extractStudentCode(String email) {
         Matcher matcher = STUDENT_EMAIL_PATTERN.matcher(email);
         if (matcher.matches()) {
@@ -110,4 +133,36 @@ public class AuthService implements LoginUseCase {
         }
         return email.substring(0, email.indexOf("@")).toUpperCase();
     }
+
+    @Override
+    @Transactional
+    public AuthResponse loginLocal(LocalLoginRequest request) {
+        User user = userRepositoryPort.findByEmail(request.getEmail())
+                .orElseThrow(() -> new UnauthorizedException("Invalid email or password"));
+
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new UnauthorizedException("Your account is banned. Please contact the administrator.");
+        }
+
+        if (user.getPassword() == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new UnauthorizedException("Invalid email or password");
+        }
+
+        if (user.getStatus() == UserStatus.PENDING) {
+            user.setStatus(UserStatus.ACTIVE);
+            userRepositoryPort.save(user);
+        }
+
+        String token = jwtProviderPort.generateToken(user);
+        return AuthResponse.builder()
+                .accessToken(token)
+                .role(user.getRole().name())
+                .user(UserProfileDTO.builder()
+                        .email(user.getEmail())
+                        .name(user.getName())
+                        .picture(user.getPicture())
+                        .build())
+                .build();
+    }
+
 }

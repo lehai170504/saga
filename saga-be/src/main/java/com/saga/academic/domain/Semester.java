@@ -7,6 +7,7 @@ import java.util.UUID;
 @Builder
 public class Semester {
     private UUID id;
+    private String code;
     private String name;
     private LocalDate startDate;
     private LocalDate endDate;

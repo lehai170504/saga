@@ -7,6 +7,11 @@ import com.saga.user.infrastructure.persistence.repository.JpaUserRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import com.saga.user.domain.Role;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 public class UserRepositoryAdapter implements UserRepositoryPort {
@@ -18,8 +23,18 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     }
 
     @Override
+    public Optional<User> findById(java.util.UUID id) {
+        return jpaUserRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
     public Optional<User> findByEmail(String email) {
         return jpaUserRepository.findByEmail(email).map(this::toDomain);
+    }
+
+    @Override
+    public Page<User> findAll(Pageable pageable) {
+        return jpaUserRepository.findAll(pageable).map(this::toDomain);
     }
 
     @Override
@@ -28,12 +43,23 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         return toDomain(jpaUserRepository.save(entity));
     }
 
+    @Override
+    public Page<User> findByRole(Role role, Pageable pageable) {
+        return jpaUserRepository.findByRole(role, pageable).map(this::toDomain);
+    }
+
+    @Override
+    public List<User> findByRole(Role role) {
+        return jpaUserRepository.findByRole(role).stream().map(this::toDomain).collect(Collectors.toList());
+    }
+
     private User toDomain(UserEntity entity) {
         return User.builder()
                 .id(entity.getId())
                 .email(entity.getEmail())
                 .name(entity.getName())
                 .picture(entity.getPicture())
+                .password(entity.getPassword())
                 .role(entity.getRole())
                 .status(entity.getStatus())
                 .build();

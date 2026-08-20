@@ -32,11 +32,12 @@ public class MasterDataService {
             throw new IllegalArgumentException("Start date must be before end date");
         }
         SemesterEntity entity = new SemesterEntity();
+        entity.setCode(request.getCode());
         entity.setName(request.getName());
         entity.setStartDate(request.getStartDate());
         entity.setEndDate(request.getEndDate());
         SemesterEntity saved = semesterRepository.save(entity);
-        return Semester.builder().id(saved.getId()).name(saved.getName()).startDate(saved.getStartDate())
+        return Semester.builder().id(saved.getId()).code(saved.getCode()).name(saved.getName()).startDate(saved.getStartDate())
                 .endDate(saved.getEndDate()).build();
     }
 

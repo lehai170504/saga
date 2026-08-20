@@ -21,6 +21,7 @@ public class UserEntity {
 
     private String name;
     private String picture;
+    private String password;
 
     @Enumerated(EnumType.STRING)
     private Role role;

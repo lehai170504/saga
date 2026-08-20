@@ -5,4 +5,7 @@ import org.springframework.stereotype.Repository;
 import java.util.UUID;
 @Repository
 public interface JpaGitRepoRepository extends JpaRepository<GitRepoEntity, UUID> {    java.util.Optional<GitRepoEntity> findByRepoId(String repoId);
+
+    java.util.Optional<com.saga.project.infrastructure.persistence.entity.GitRepoEntity> findByTeamId(UUID projectId);
+    boolean existsByTeamId(UUID projectId);
 }

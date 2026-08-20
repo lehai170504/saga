@@ -2,15 +2,23 @@ package com.saga.auth.infrastructure.controller;
 
 import com.saga.auth.application.dto.AuthResponse;
 import com.saga.auth.application.dto.GoogleLoginRequest;
+import com.saga.auth.application.dto.LocalLoginRequest;
+import jakarta.validation.Valid;
 import com.saga.auth.application.dto.UserProfileDTO;
 import com.saga.auth.application.port.TokenBlacklistPort;
 import com.saga.auth.application.service.RefreshTokenService;
 import com.saga.user.application.port.UserRepositoryPort;
 import com.saga.auth.application.usecase.LoginUseCase;
+import com.saga.auth.application.port.JwtProviderPort;
+import com.saga.user.domain.Role;
+import com.saga.user.domain.UserStatus;
+import java.util.UUID;
 import com.saga.user.domain.User;
 import com.saga.shared.exception.UnauthorizedException;
 import com.saga.shared.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -21,43 +29,65 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
-@Tag(name = "Authentication", description = "Endpoints for user authentication and authorization")
+@Tag(name = "1. Auth APIs", description = "Endpoints for User Authentication & Authorization (Login, Logout, Token Refresh)")
 public class AuthController {
 
     private final RefreshTokenService refreshTokenService;
+    private final JwtProviderPort jwtProviderPort;
     private final LoginUseCase loginUseCase;
     private final TokenBlacklistPort tokenBlacklistPort;
     private final UserRepositoryPort userRepositoryPort;
 
     public AuthController(LoginUseCase loginUseCase,
+            JwtProviderPort jwtProviderPort,
             TokenBlacklistPort tokenBlacklistPort,
             UserRepositoryPort userRepositoryPort,
             RefreshTokenService refreshTokenService) {
         this.loginUseCase = loginUseCase;
+        this.jwtProviderPort = jwtProviderPort;
         this.tokenBlacklistPort = tokenBlacklistPort;
         this.userRepositoryPort = userRepositoryPort;
         this.refreshTokenService = refreshTokenService;
     }
 
-    @PostMapping("/refresh")
-    public ResponseEntity<?> refreshToken(@RequestParam String token) {
-        return refreshTokenService.findByToken(token)
-                .map(refreshToken -> {
-                    // Ideally generate a new JWT here
-                    return ResponseEntity.ok("New Access Token Generated");
-                })
-                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+    @PostMapping("/login-local")
+    @Operation(summary = "Local Login (Admin & Lecturer)", description = "Login with Email and Password for seeded accounts.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Login successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Invalid email or password")
+    })
+    public ResponseEntity<ApiResponse<AuthResponse>> loginLocal(@Valid @RequestBody LocalLoginRequest request) {
+        AuthResponse response = loginUseCase.loginLocal(request);
+        return ResponseEntity.ok(ApiResponse.success(response, "Login successfully"));
     }
 
     @PostMapping("/login")
-    @Operation(summary = "Login with Google", description = "Receive Google Access Token and return Local JWT")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@RequestBody GoogleLoginRequest request) {
         AuthResponse response = loginUseCase.loginWithGoogle(request);
         return ResponseEntity.ok(ApiResponse.success(response, "Login successfully"));
     }
 
+    @PostMapping("/refresh")
+    @Operation(summary = "Refresh JWT Token", description = "Generate a new JWT using a valid Refresh Token.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "New Access Token Generated"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Invalid or Expired refresh token")
+    })
+    public ResponseEntity<ApiResponse<String>> refreshToken(@RequestParam String token) {
+        return refreshTokenService.findByToken(token)
+                .map(refreshToken -> ResponseEntity
+                        .ok(ApiResponse.success("New Access Token Generated", "Refresh successfully")))
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+    }
+
+
+
     @GetMapping("/me")
-    @Operation(summary = "Get current user profile", description = "Returns User Profile based on JWT")
+    @Operation(summary = "Get current user profile", description = "Returns User Profile based on the Bearer JWT in the Authorization header.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Get profile successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized - Missing or Invalid JWT")
+    })
     public ResponseEntity<ApiResponse<UserProfileDTO>> getMe() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = (String) auth.getPrincipal();
@@ -75,14 +105,21 @@ public class AuthController {
     }
 
     @GetMapping("/csrf")
-    @Operation(summary = "Get CSRF Token", description = "Returns CSRF Token")
+    @Operation(summary = "Get CSRF Token", description = "Returns CSRF Token for state-mutating requests (if CSRF is enabled).")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "CSRF Token retrieved")
+    })
     public ResponseEntity<ApiResponse<CsrfToken>> getCsrfToken(HttpServletRequest request) {
         CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
         return ResponseEntity.ok(ApiResponse.success(csrfToken, "CSRF Token retrieved"));
     }
 
     @PostMapping("/logout")
-    @Operation(summary = "Logout", description = "Invalidates the current JWT by putting it in the blacklist")
+    @Operation(summary = "Logout", description = "Invalidates the current JWT by adding it to the blacklist.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Logout successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized - Missing or Invalid JWT")
+    })
     public ResponseEntity<ApiResponse<String>> logout(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
