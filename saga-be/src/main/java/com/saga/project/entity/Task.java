@@ -32,6 +32,7 @@ public class Task {
     
     @Column(name = "status")
     private String status;
+    private java.time.LocalDateTime completedAt;
     
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "task_attachments", joinColumns = @JoinColumn(name = "task_id"))

@@ -11,8 +11,6 @@ import com.saga.evaluation.repository.JpaPeerReviewRepository;
 import com.saga.evaluation.repository.JpaTaskWeightConfigRepository;
 import com.saga.project.entity.Task;
 import com.saga.project.repository.JpaTaskRepository;
-// Assume we have JpaTaskRepository or something similar. 
-// For now, I'll assume we can fetch tasks somehow. I'll mock the dependency or create it.
 import org.springframework.stereotype.Service;
 
 import java.util.List;

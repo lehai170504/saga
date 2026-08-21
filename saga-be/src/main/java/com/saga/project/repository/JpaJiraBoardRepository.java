@@ -8,4 +8,5 @@ import java.util.UUID;
 public interface JpaJiraBoardRepository extends JpaRepository<JiraBoard, UUID>, JpaSpecificationExecutor<JiraBoard> {
     java.util.Optional<com.saga.project.entity.JiraBoard> findByTeamId(UUID projectId);
     boolean existsByTeamId(UUID projectId);
+    long countByStatus(com.saga.project.entity.IntegrationStatus status);
 }

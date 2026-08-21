@@ -20,4 +20,5 @@ public class CommitData {
     private String message;
     private String authorEmail;
     private String branchName;
+    private java.time.LocalDateTime commitDate;
 }

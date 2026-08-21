@@ -18,8 +18,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import org.springframework.data.redis.core.RedisTemplate;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class ProjectIntegrationService {
@@ -28,6 +29,7 @@ public class ProjectIntegrationService {
     private final TeamValidationService teamValidationPort;
     private final WebClient webClient;
     private final InitialSyncService initialSyncService;
+    private final GithubAppAuthService githubAppAuthService;
 
     @Value("${app.jira.client-id:}")
     private String jiraClientId;
@@ -44,20 +46,26 @@ public class ProjectIntegrationService {
     @Value("${app.github.client-secret:}")
     private String githubClientSecret;
 
-    // Temporary storage for tokens between OAuth callback and Confirmation
-    private final Map<UUID, Map<String, String>> tempJiraTokens = new ConcurrentHashMap<>();
-    private final Map<UUID, String> tempGithubInstallations = new ConcurrentHashMap<>();
+    // Redis keys
+    private static final String JIRA_TOKEN_PREFIX = "jira_token:";
+    private static final String GITHUB_INSTALL_PREFIX = "github_installation:";
+    private final RedisTemplate<String, Object> redisTemplate;
 
     public ProjectIntegrationService(JpaJiraBoardRepository jiraBoardRepository,
             JpaGitRepoRepository gitRepoRepository,
             TeamValidationService teamValidationPort,
             InitialSyncService initialSyncService,
-            WebClient.Builder webClientBuilder) {
+            WebClient.Builder webClientBuilder,
+            RedisTemplate<String, Object> redisTemplate,
+            GithubAppAuthService githubAppAuthService) {
+        this.redisTemplate = redisTemplate;
         this.jiraBoardRepository = jiraBoardRepository;
+        this.githubAppAuthService = githubAppAuthService;
         this.gitRepoRepository = gitRepoRepository;
         this.teamValidationPort = teamValidationPort;
-        this.webClient = webClientBuilder.build();
         this.initialSyncService = initialSyncService;
+        this.webClient = webClientBuilder.build();
+        
     }
 
     private void checkLeaderPermission(UUID userId, UUID teamId) {
@@ -104,7 +112,7 @@ public class ProjectIntegrationService {
         tokens.put("access_token", accessToken);
         if (refreshToken != null)
             tokens.put("refresh_token", refreshToken);
-        tempJiraTokens.put(teamId, tokens);
+        redisTemplate.opsForValue().set(JIRA_TOKEN_PREFIX + teamId, tokens, 15, TimeUnit.MINUTES);
 
         // 2. Get Accessible Resources (Sites)
         List<Map<String, Object>> resources = webClient.get()
@@ -127,7 +135,7 @@ public class ProjectIntegrationService {
 
     public List<AvailableJiraProjectDTO> getAvailableJiraProjects(UUID userId, UUID teamId, String siteId) {
         checkLeaderPermission(userId, teamId);
-        Map<String, String> tokens = tempJiraTokens.get(teamId);
+        Map<String, String> tokens = (Map<String, String>) redisTemplate.opsForValue().get(JIRA_TOKEN_PREFIX + teamId);
         String accessToken = tokens != null ? tokens.get("access_token") : null;
         if (accessToken == null) {
             throw new IllegalStateException("No active Jira connection process found. Please reconnect.");
@@ -176,14 +184,14 @@ public class ProjectIntegrationService {
         entity.setStatus(IntegrationStatus.LINKED);
         entity.setLinkedAt(LocalDateTime.now());
 
-        Map<String, String> tokens = tempJiraTokens.get(teamId);
+        Map<String, String> tokens = (Map<String, String>) redisTemplate.opsForValue().get(JIRA_TOKEN_PREFIX + teamId);
         if (tokens != null) {
             entity.setAccessToken(tokens.get("access_token"));
             entity.setRefreshToken(tokens.get("refresh_token"));
         }
 
         // Remove token from temp storage to free memory
-        tempJiraTokens.remove(teamId);
+        redisTemplate.delete(JIRA_TOKEN_PREFIX + teamId);
 
         initialSyncService.syncJiraTasks(teamId, entity.getSiteId(), entity.getProjectKey());
 
@@ -221,28 +229,41 @@ public class ProjectIntegrationService {
     public List<AvailableGithubRepoDTO> handleGithubCallback(UUID userId, String installationId, String state) {
         UUID teamId = UUID.fromString(state);
         checkLeaderPermission(userId, teamId);
-        tempGithubInstallations.put(teamId, installationId);
+        redisTemplate.opsForValue().set(GITHUB_INSTALL_PREFIX + teamId, installationId, 15, TimeUnit.MINUTES);
 
-        // In a real app, we would generate a JWT for the Github App, then exchange for
-        // an Installation Access Token
-        // and call https://api.github.com/installation/repositories
-        // For this implementation, we will mock the return for demonstration, or
-        // implement the JWT flow if needed.
+        try {
+            // Generate Installation Access Token using the private key and app ID
+            String installationToken = githubAppAuthService.getInstallationAccessToken(installationId);
 
-        // MOCK DATA for now since full Github App JWT is complex to setup without
-        // private key file
-        return Arrays.asList(
-                AvailableGithubRepoDTO.builder().id("12345").fullName("fpt-edu/saga-backend")
-                        .url("https://github.com/fpt-edu/saga-backend").isPrivate(false).build(),
-                AvailableGithubRepoDTO.builder().id("12346").fullName("fpt-edu/saga-frontend")
-                        .url("https://github.com/fpt-edu/saga-frontend").isPrivate(false).build());
+            // Fetch repositories using WebClient
+            Map<String, Object> response = webClient.get()
+                    .uri("https://api.github.com/installation/repositories")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + installationToken)
+                    .header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .block();
+
+            if (response != null && response.containsKey("repositories")) {
+                List<Map<String, Object>> reposNode = (List<Map<String, Object>>) response.get("repositories");
+                return reposNode.stream().map(node -> AvailableGithubRepoDTO.builder()
+                        .id(String.valueOf(node.get("id")))
+                        .fullName((String) node.get("full_name"))
+                        .url((String) node.get("html_url"))
+                        .isPrivate((Boolean) node.get("private"))
+                        .build()).collect(Collectors.toList());
+            }
+            return Collections.emptyList();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to fetch Github repositories: " + e.getMessage(), e);
+        }
     }
 
     @Transactional
     public List<GitRepo> confirmGithubRepos(UUID userId, UUID teamId, GithubConfirmRequest request) {
         checkLeaderPermission(userId, teamId);
 
-        String installationId = tempGithubInstallations.get(teamId);
+        String installationId = (String) redisTemplate.opsForValue().get(GITHUB_INSTALL_PREFIX + teamId);
         if (installationId == null) {
             throw new IllegalStateException("No active Github connection process found.");
         }
@@ -264,7 +285,8 @@ public class ProjectIntegrationService {
                 entity.setStatus(IntegrationStatus.LINKED);
                 entity.setLinkedAt(LocalDateTime.now());
 
-                Map<String, String> tokens = tempJiraTokens.get(teamId);
+                Map<String, String> tokens = (Map<String, String>) redisTemplate.opsForValue()
+                        .get(JIRA_TOKEN_PREFIX + teamId);
                 if (tokens != null) {
                     entity.setAccessToken(tokens.get("access_token"));
                     entity.setRefreshToken(tokens.get("refresh_token"));
@@ -273,7 +295,7 @@ public class ProjectIntegrationService {
             }
         }
 
-        tempGithubInstallations.remove(teamId);
+        redisTemplate.delete(GITHUB_INSTALL_PREFIX + teamId);
 
         initialSyncService.syncGithubCommits(teamId, request.getRepoUrls());
 
@@ -300,3 +322,5 @@ public class ProjectIntegrationService {
         }
     }
 }
+
+

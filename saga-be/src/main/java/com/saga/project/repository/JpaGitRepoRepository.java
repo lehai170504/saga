@@ -9,6 +9,7 @@ public interface JpaGitRepoRepository extends JpaRepository<GitRepo, UUID>, JpaS
 
     java.util.Optional<com.saga.project.entity.GitRepo> findByTeamId(UUID projectId);
     boolean existsByTeamId(UUID projectId);
+    long countByStatus(com.saga.project.entity.IntegrationStatus status);
     java.util.List<GitRepo> findAllByTeamId(UUID teamId);
     java.util.Optional<GitRepo> findByRepoUrl(String repoUrl);
 }

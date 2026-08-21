@@ -33,6 +33,12 @@ class TraceabilitySyncServiceTest {
     private JpaTaskRepository taskRepository;
 
     @Mock
+    private com.saga.project.graph.CommitNodeRepository commitNodeRepository;
+
+    @Mock
+    private com.saga.project.graph.JiraTaskNodeRepository jiraTaskNodeRepository;
+
+    @Mock
     private JpaTaskCommitLinkRepository taskCommitLinkRepository;
 
     @InjectMocks
@@ -89,3 +95,6 @@ class TraceabilitySyncServiceTest {
         verify(taskCommitLinkRepository, times(1)).save(any());
     }
 }
+
+
+

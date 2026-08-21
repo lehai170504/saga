@@ -20,4 +20,7 @@ public interface JpaCourseStudentRepository
 
     @Query("SELECT c FROM Course c INNER JOIN CourseStudent cs ON c.id = cs.courseId WHERE cs.studentId = :studentId")
     Page<Course> findCoursesByStudentId(@Param("studentId") UUID studentId, Pageable pageable);
+
+    @Query("SELECT COUNT(DISTINCT cs.studentId) FROM CourseStudent cs JOIN Course c ON cs.courseId = c.id WHERE c.instructorId = :instructorId")
+    long countUniqueStudentsByInstructorId(@Param("instructorId") UUID instructorId);
 }

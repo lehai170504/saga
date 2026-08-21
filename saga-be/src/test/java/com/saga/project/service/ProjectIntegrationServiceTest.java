@@ -10,6 +10,8 @@ import com.saga.project.repository.JpaJiraBoardRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.mockito.MockitoAnnotations;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.security.access.AccessDeniedException;
@@ -37,21 +39,31 @@ class ProjectIntegrationServiceTest {
     private WebClient.Builder webClientBuilder;
 
     @Mock
+    private GithubAppAuthService githubAppAuthService;
+
+    @Mock
     private WebClient webClient;
 
     @Mock
     private InitialSyncService initialSyncService;
 
+    @Mock
+    private RedisTemplate<String, Object> redisTemplate;
+
     private ProjectIntegrationService projectIntegrationService;
     private UUID userId;
     private UUID teamId;
+    @Mock
+    private ValueOperations<String, Object> valueOperations;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
         when(webClientBuilder.build()).thenReturn(webClient);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         projectIntegrationService = new ProjectIntegrationService(
-                jiraBoardRepository, gitRepoRepository, teamValidationPort, initialSyncService, webClientBuilder);
+                jiraBoardRepository, gitRepoRepository, teamValidationPort, initialSyncService, webClientBuilder, redisTemplate, githubAppAuthService);
         userId = UUID.randomUUID();
         teamId = UUID.randomUUID();
     }
@@ -85,6 +97,8 @@ class ProjectIntegrationServiceTest {
         mockBoard.setProjectKey("SAGA");
         when(jiraBoardRepository.save(any(JiraBoard.class))).thenReturn(mockBoard);
 
+        java.util.Map<String, String> tokens = new java.util.HashMap<>(); tokens.put("access_token", "token");
+        when(valueOperations.get(anyString())).thenReturn(tokens);
         JiraBoard res = projectIntegrationService.confirmJiraProject(userId, teamId, req);
         assertNotNull(res);
         assertEquals("SAGA", res.getProjectKey());
@@ -119,8 +133,6 @@ class ProjectIntegrationServiceTest {
     @Test
     void confirmGithubRepos_Success() {
         when(teamValidationPort.isLeader(userId, teamId)).thenReturn(true);
-        // Mock the handle callback to set temp state
-        projectIntegrationService.handleGithubCallback(userId, "inst-123", teamId.toString());
 
         GithubConfirmRequest req = new GithubConfirmRequest();
         req.setRepoUrls(Arrays.asList("https://github.com/fpt/repo1", "https://github.com/fpt/repo2"));
@@ -128,6 +140,8 @@ class ProjectIntegrationServiceTest {
         when(gitRepoRepository.findByRepoUrl(anyString())).thenReturn(Optional.empty());
         when(gitRepoRepository.save(any(GitRepo.class))).thenAnswer(i -> i.getArguments()[0]);
 
+        when(valueOperations.get(org.mockito.ArgumentMatchers.contains("github"))).thenReturn("dummy-install-id");
+        when(valueOperations.get(org.mockito.ArgumentMatchers.contains("jira"))).thenReturn(null);
         List<GitRepo> res = projectIntegrationService.confirmGithubRepos(userId, teamId, req);
 
         assertEquals(2, res.size());
@@ -145,3 +159,13 @@ class ProjectIntegrationServiceTest {
         verify(gitRepoRepository, times(1)).deleteAll(repos);
     }
 }
+
+
+
+
+
+
+
+
+
+
