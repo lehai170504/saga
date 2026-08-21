@@ -6,6 +6,7 @@ import com.saga.project.entity.CommitData;
 import com.saga.project.entity.GitRepo;
 import com.saga.project.entity.TaskCommitLink;
 import com.saga.project.entity.Task;
+import com.saga.project.entity.TaskAttachment;
 import com.saga.project.repository.JpaCommitDataRepository;
 import com.saga.project.repository.JpaGitRepoRepository;
 import com.saga.project.repository.JpaTaskCommitLinkRepository;
@@ -44,7 +45,34 @@ public class TraceabilitySyncService {
     @Transactional
     public void handleJiraWebhook(JiraWebhookPayload payload) {
         log.info("Received Jira webhook event: {}", payload.getWebhookEvent());
-        // TODO: Map to Task entity and save to repository
+        try {
+            if (payload == null || payload.getIssue() == null) return;
+            
+            String issueKey = payload.getIssue().getKey();
+            Optional<Task> taskOpt = taskRepository.findByIssueKey(issueKey);
+            if (taskOpt.isPresent()) {
+                Task task = taskOpt.get();
+                if (payload.getIssue().getFields() != null) {
+                    task.setSummary(payload.getIssue().getFields().getSummary());
+                    if (payload.getIssue().getFields().getStatus() != null) {
+                        task.setStatus(payload.getIssue().getFields().getStatus().getName());
+                    }
+                    if (payload.getIssue().getFields().getAttachment() != null) {
+                        java.util.List<TaskAttachment> attachments = payload.getIssue().getFields().getAttachment().stream()
+                                .map(a -> TaskAttachment.builder()
+                                        .filename(a.getFilename())
+                                        .url(a.getContent())
+                                        .build())
+                                .collect(java.util.stream.Collectors.toList());
+                        task.setAttachments(attachments);
+                    }
+                }
+                taskRepository.save(task);
+                log.info("Updated Jira Task: {} with summary and attachments", issueKey);
+            }
+        } catch (Exception e) {
+            log.error("Error processing Jira webhook", e);
+        }
     }
 
     public void handleGithubWebhook(GithubWebhookPayload payload) {
@@ -106,5 +134,6 @@ public class TraceabilitySyncService {
         }
     }
 }
+
 
 
