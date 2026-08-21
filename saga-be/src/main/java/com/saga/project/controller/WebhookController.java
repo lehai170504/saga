@@ -1,6 +1,7 @@
 package com.saga.project.controller;
 
 import com.saga.project.dto.GithubWebhookPayload;
+import com.saga.project.dto.JiraWebhookPayload;
 import com.saga.project.service.TraceabilitySyncService;
 import com.saga.shared.response.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +25,17 @@ public class WebhookController {
         this.syncService = syncService;
     }
 
+    @PostMapping("/jira")
+    @Operation(summary = "Jira Webhook Receiver", description = "Listens for events from Jira to sync Tasks. Not meant to be called by FE.")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "202", description = "Webhook received and processing started"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid payload")
+    })
+    public ResponseEntity<ApiResponse<Void>> handleJiraWebhook(@RequestBody JiraWebhookPayload payload) {
+        syncService.handleJiraWebhook(payload);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success(null, "Jira Webhook received and processing started"));
+    }
+
     @PostMapping("/github")
     @Operation(summary = "GitHub Webhook Receiver", description = "Listens for 'push' events from GitHub to sync Commits. Not meant to be called by FE.")
     @ApiResponses({
@@ -31,7 +43,6 @@ public class WebhookController {
         @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid payload")
     })
     public ResponseEntity<ApiResponse<Void>> handleGithubWebhook(@RequestBody GithubWebhookPayload payload) {
-        // Trigger Async processing, immediately return 202 Accepted
         syncService.handleGithubWebhook(payload);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse.success(null, "Webhook received and processing started"));
     }

@@ -32,4 +32,11 @@ public class GitRepo {
     private IntegrationStatus status;
     @Column(name = "linked_at")
     private LocalDateTime linkedAt;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sync_status")
+    private SyncStatus syncStatus;
+    @Column(name = "last_synced_at")
+    private LocalDateTime lastSyncedAt;
+    @Column(name = "last_sync_message")
+    private String lastSyncMessage;
 }

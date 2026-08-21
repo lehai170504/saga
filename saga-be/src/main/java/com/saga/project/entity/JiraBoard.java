@@ -27,9 +27,22 @@ public class JiraBoard {
     private String boardName;
     @Column(name = "project_key")
     private String projectKey;
+    @Column(name = "site_id")
+    private String siteId;
+    @Column(name = "site_url")
+    private String siteUrl;
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private IntegrationStatus status;
     @Column(name = "linked_at")
     private LocalDateTime linkedAt;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "sync_status")
+    private SyncStatus syncStatus;
+    @Column(name = "last_synced_at")
+    private LocalDateTime lastSyncedAt;
+    @Column(name = "last_sync_message")
+    private String lastSyncMessage;
 }
+
+

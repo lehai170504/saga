@@ -1,6 +1,7 @@
 package com.saga.project.service;
 
 import com.saga.project.dto.GithubWebhookPayload;
+import com.saga.project.dto.JiraWebhookPayload;
 import com.saga.project.entity.CommitData;
 import com.saga.project.entity.GitRepo;
 import com.saga.project.entity.TaskCommitLink;
@@ -16,8 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class TraceabilitySyncService {
 
     private final JpaGitRepoRepository gitRepoRepository;
@@ -39,6 +42,11 @@ public class TraceabilitySyncService {
 
     @Async
     @Transactional
+    public void handleJiraWebhook(JiraWebhookPayload payload) {
+        log.info("Received Jira webhook event: {}", payload.getWebhookEvent());
+        // TODO: Map to Task entity and save to repository
+    }
+
     public void handleGithubWebhook(GithubWebhookPayload payload) {
         try {
         if (payload == null || payload.getRepository() == null || payload.getCommits() == null) {
@@ -98,3 +106,5 @@ public class TraceabilitySyncService {
         }
     }
 }
+
+

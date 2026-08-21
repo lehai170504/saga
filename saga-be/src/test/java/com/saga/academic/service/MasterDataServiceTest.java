@@ -5,7 +5,6 @@ import com.saga.academic.dto.CreateSemesterRequest;
 import com.saga.academic.entity.Semester;
 import com.saga.academic.entity.ActiveSemesterSetting;
 import com.saga.academic.entity.Course;
-import com.saga.academic.entity.Semester;
 import com.saga.academic.repository.JpaActiveSemesterRepository;
 import com.saga.academic.repository.JpaCourseRepository;
 import com.saga.academic.repository.JpaSemesterRepository;
@@ -28,10 +27,10 @@ class MasterDataServiceTest {
 
     @Mock
     private JpaSemesterRepository semesterRepository;
-    
+
     @Mock
     private JpaCourseRepository courseRepository;
-    
+
     @Mock
     private JpaActiveSemesterRepository activeSemesterRepository;
 
