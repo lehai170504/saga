@@ -7,7 +7,6 @@ import com.saga.evaluation.entity.ContributionOverride;
 import com.saga.evaluation.service.EvaluationConfigService;
 import com.saga.evaluation.service.EvaluationReportService;
 import com.saga.evaluation.service.OverrideService;
-import com.saga.project.entity.Task;
 import com.saga.shared.response.ApiResponse;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,7 +14,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.UUID;
 
 @RestController
@@ -64,10 +62,8 @@ public class LecturerEvaluationController {
     @Operation(summary = "Get Sprint Report for Lecturer")
     public ResponseEntity<ApiResponse<SprintReportDTO>> getSprintReport(@PathVariable UUID teamId,
             @PathVariable String sprintId, @RequestParam UUID courseId) {
-        // Mock fetch tasks for teamId and sprintId
-        // In real impl, we should inject TaskRepository and fetch it.
-        SprintReportDTO report = evaluationReportService.getSprintReport(courseId, teamId, sprintId,
-                new ArrayList<Task>());
+
+        SprintReportDTO report = evaluationReportService.getSprintReport(courseId, teamId, sprintId);
         return ResponseEntity.ok(ApiResponse.success(report, "Fetched report successfully"));
     }
 }

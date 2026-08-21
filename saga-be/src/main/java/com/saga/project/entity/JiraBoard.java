@@ -43,6 +43,13 @@ public class JiraBoard {
     private LocalDateTime lastSyncedAt;
     @Column(name = "last_sync_message")
     private String lastSyncMessage;
+    
+    @Column(length = 2048)
+    private String accessToken;
+    
+    @Column(length = 2048)
+    private String refreshToken;
 }
+
 
 

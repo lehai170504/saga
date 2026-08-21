@@ -40,6 +40,9 @@ public class EvaluationModuleTest {
         @Mock
         private JpaContributionOverrideRepository overrideRepository;
 
+        @Mock
+        private com.saga.project.repository.JpaTaskRepository taskRepository;
+
         @InjectMocks
         private EvaluationConfigService evaluationConfigService;
 
@@ -94,8 +97,10 @@ public class EvaluationModuleTest {
                 when(overrideRepository.findBySprintIdAndStudentId(sprintId, studentA))
                                 .thenReturn(Optional.of(override));
 
+                when(taskRepository.findBySprintIdAndStatus(sprintId, "DONE")).thenReturn(List.of(taskA));
+
                 SprintReportDTO report = evaluationReportService.getSprintReport(UUID.randomUUID(), UUID.randomUUID(),
-                                sprintId, List.of(taskA));
+                                sprintId);
 
                 assertThat(report.getContributions()).hasSize(1);
                 StudentContributionDTO dtoA = report.getContributions().get(0);

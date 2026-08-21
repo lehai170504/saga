@@ -10,6 +10,7 @@ import com.saga.evaluation.repository.JpaContributionOverrideRepository;
 import com.saga.evaluation.repository.JpaPeerReviewRepository;
 import com.saga.evaluation.repository.JpaTaskWeightConfigRepository;
 import com.saga.project.entity.Task;
+import com.saga.project.repository.JpaTaskRepository;
 // Assume we have JpaTaskRepository or something similar. 
 // For now, I'll assume we can fetch tasks somehow. I'll mock the dependency or create it.
 import org.springframework.stereotype.Service;
@@ -24,17 +25,20 @@ public class EvaluationReportService {
     private final JpaTaskWeightConfigRepository weightConfigRepository;
     private final JpaPeerReviewRepository peerReviewRepository;
     private final JpaContributionOverrideRepository overrideRepository;
-    // Private task repo dependency to be added if needed...
+    private final JpaTaskRepository taskRepository;
 
     public EvaluationReportService(JpaTaskWeightConfigRepository weightConfigRepository,
+            JpaTaskRepository taskRepository,
             JpaPeerReviewRepository peerReviewRepository,
             JpaContributionOverrideRepository overrideRepository) {
         this.weightConfigRepository = weightConfigRepository;
         this.peerReviewRepository = peerReviewRepository;
         this.overrideRepository = overrideRepository;
+        this.taskRepository = taskRepository;
     }
 
-    public SprintReportDTO getSprintReport(UUID courseId, UUID teamId, String sprintId, List<Task> sprintTasks) {
+    public SprintReportDTO getSprintReport(UUID courseId, UUID teamId, String sprintId) {
+        List<Task> sprintTasks = taskRepository.findBySprintIdAndStatus(sprintId, "DONE");
         // Fallback logic for weights
         List<TaskWeightConfig> weights = weightConfigRepository.findByTeamId(teamId);
         if (weights == null || weights.isEmpty()) {
@@ -65,3 +69,4 @@ public class EvaluationReportService {
                 .build();
     }
 }
+

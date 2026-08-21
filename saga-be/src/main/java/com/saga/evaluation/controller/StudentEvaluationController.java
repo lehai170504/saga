@@ -5,7 +5,7 @@ import com.saga.evaluation.dto.SprintReportDTO;
 import com.saga.evaluation.entity.PeerReview;
 import com.saga.evaluation.service.EvaluationReportService;
 import com.saga.evaluation.service.StudentEvaluationService;
-import com.saga.project.entity.Task;
+
 import com.saga.shared.response.ApiResponse;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -13,7 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
+
 import java.util.UUID;
 
 @RestController
@@ -42,8 +42,8 @@ public class StudentEvaluationController {
     @Operation(summary = "Get Sprint Report for Student")
     public ResponseEntity<ApiResponse<SprintReportDTO>> getSprintReport(@PathVariable UUID teamId,
             @PathVariable String sprintId, @RequestParam UUID courseId) {
-        SprintReportDTO report = evaluationReportService.getSprintReport(courseId, teamId, sprintId,
-                new ArrayList<Task>());
+        SprintReportDTO report = evaluationReportService.getSprintReport(courseId, teamId, sprintId);
         return ResponseEntity.ok(ApiResponse.success(report, "Fetched report successfully"));
     }
 }
+

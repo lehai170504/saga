@@ -1,4 +1,4 @@
-﻿server:
+server:
   port: 8080
 
 spring:
@@ -46,9 +46,16 @@ app:
     client-secret: ${JIRA_CLIENT_SECRET:your_jira_client_secret}
     redirect-uri: ${JIRA_REDIRECT_URI:http://localhost:3000/identities/callback
 
+  neo4j:
+    uri: ${NEO4J_URI:bolt://localhost:7687}
+    authentication:
+      username: ${NEO4J_USERNAME:neo4j}
+      password: ${NEO4J_PASSWORD:password}
+
 springdoc:
   swagger-ui:
     tags-sorter: alpha
     filter: true
+
 
 

@@ -9,6 +9,10 @@ import com.saga.project.repository.JpaTaskRepository;
 import com.saga.project.repository.JpaCommitDataRepository;
 import com.saga.project.repository.JpaJiraBoardRepository;
 import com.saga.project.repository.JpaGitRepoRepository;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
+import java.util.Map;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,8 +31,10 @@ public class InitialSyncService {
     private final JpaCommitDataRepository commitDataRepository;
     private final JpaJiraBoardRepository jiraBoardRepository;
     private final JpaGitRepoRepository gitRepoRepository;
+    private final WebClient webClient;
 
-    public InitialSyncService(JpaTaskRepository taskRepository, JpaCommitDataRepository commitDataRepository, JpaJiraBoardRepository jiraBoardRepository, JpaGitRepoRepository gitRepoRepository) {
+    public InitialSyncService(JpaTaskRepository taskRepository, JpaCommitDataRepository commitDataRepository, JpaJiraBoardRepository jiraBoardRepository, JpaGitRepoRepository gitRepoRepository, WebClient.Builder webClientBuilder) {
+        this.webClient = webClientBuilder.build();
         this.taskRepository = taskRepository;
         this.commitDataRepository = commitDataRepository;
         this.jiraBoardRepository = jiraBoardRepository;
@@ -47,12 +53,38 @@ public class InitialSyncService {
         jiraBoardRepository.save(board);
 
         try {
-            // TODO: Implement actual Atlassian API call to fetch all historical tasks
-            // Use WebClient to call /rest/api/3/search?jql=project="SAGA"
-            // Parse the results and save into JpaTaskRepository
-            
-            // Mock delay
-            Thread.sleep(1000);
+            if (board.getAccessToken() != null) {
+                String jql = "project=\"" + projectKey + "\"";
+                String url = "https://api.atlassian.com/ex/jira/" + siteId + "/rest/api/3/search?jql=" + jql + "&maxResults=100";
+                
+                Map<String, Object> response = webClient.get()
+                        .uri(url)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + board.getAccessToken())
+                        .retrieve()
+                        .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                        .block();
+                
+                if (response != null && response.containsKey("issues")) {
+                    List<Map<String, Object>> issues = (List<Map<String, Object>>) response.get("issues");
+                    for (Map<String, Object> issue : issues) {
+                        Map<String, Object> fields = (Map<String, Object>) issue.get("fields");
+                        
+                        Task task = new Task();
+                        task.setBoardId(board.getId());
+                        task.setIssueKey((String) issue.get("key"));
+                        task.setSummary(fields != null ? (String) fields.get("summary") : "No Summary");
+                        
+                        // Try to get status
+                        if (fields != null && fields.containsKey("status")) {
+                            Map<String, Object> statusObj = (Map<String, Object>) fields.get("status");
+                            task.setStatus((String) statusObj.get("name"));
+                        }
+                        
+                        // Save task
+                        taskRepository.save(task);
+                    }
+                }
+            }
 
             board.setSyncStatus(SyncStatus.SUCCESS);
             board.setLastSyncedAt(LocalDateTime.now());
@@ -79,12 +111,49 @@ public class InitialSyncService {
         gitRepoRepository.saveAll(repos);
 
         try {
-            // TODO: Implement actual GitHub API call to fetch all historical commits
-            // Use WebClient to call /repos/{owner}/{repo}/commits
-            // Parse the results, save into JpaCommitDataRepository, and link tasks using TraceabilitySyncService regex
-            
-            // Mock delay
-            Thread.sleep(1000);
+            for (GitRepo repo : repos) {
+                // url is like https://github.com/owner/repo
+                String repoUrl = repo.getRepoUrl();
+                String path = repoUrl.replace("https://github.com/", "");
+                String apiUrl = "https://api.github.com/repos/" + path + "/commits?per_page=100";
+                
+                WebClient.RequestHeadersSpec<?> requestSpec = webClient.get().uri(apiUrl);
+                
+                // If it is a private repo or we have an installation ID, we should ideally use the Github App JWT.
+                // For simplicity, if accessToken is available (could be PAT), use it.
+                if (repo.getAccessToken() != null && !repo.getAccessToken().startsWith("GH-INST")) {
+                    requestSpec.header(HttpHeaders.AUTHORIZATION, "Bearer " + repo.getAccessToken());
+                }
+
+                try {
+                    List<Map<String, Object>> commits = requestSpec
+                            .retrieve()
+                            .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+                            .block();
+                            
+                    if (commits != null) {
+                        for (Map<String, Object> commitObj : commits) {
+                            String hash = (String) commitObj.get("sha");
+                            Map<String, Object> commitData = (Map<String, Object>) commitObj.get("commit");
+                            String message = (String) commitData.get("message");
+                            Map<String, Object> author = (Map<String, Object>) commitData.get("author");
+                            String authorEmail = (String) author.get("email");
+                            
+                            CommitData entity = new CommitData();
+                            entity.setRepoId(repo.getId());
+                            entity.setHash(hash);
+                            entity.setMessage(message);
+                            entity.setAuthorEmail(authorEmail);
+                            // Setting branch as master/main implicitly since it API returns default branch commits
+                            entity.setBranchName("main"); 
+                            
+                            commitDataRepository.save(entity);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to fetch commits for repo {}", repoUrl, e);
+                }
+            }
 
             for (GitRepo repo : repos) {
                 repo.setSyncStatus(SyncStatus.SUCCESS);
@@ -103,3 +172,6 @@ public class InitialSyncService {
         }
     }
 }
+
+
+

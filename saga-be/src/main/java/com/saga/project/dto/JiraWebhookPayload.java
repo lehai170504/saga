@@ -1,7 +1,6 @@
 package com.saga.project.dto;
 
 import lombok.Data;
-import java.util.Map;
 
 @Data
 public class JiraWebhookPayload {
@@ -49,4 +48,3 @@ public class JiraWebhookPayload {
         private String name;
     }
 }
-

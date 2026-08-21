@@ -45,7 +45,7 @@ public class ProjectIntegrationService {
     private String githubClientSecret;
 
     // Temporary storage for tokens between OAuth callback and Confirmation
-    private final Map<UUID, String> tempJiraTokens = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<String, String>> tempJiraTokens = new ConcurrentHashMap<>();
     private final Map<UUID, String> tempGithubInstallations = new ConcurrentHashMap<>();
 
     public ProjectIntegrationService(JpaJiraBoardRepository jiraBoardRepository,
@@ -99,7 +99,11 @@ public class ProjectIntegrationService {
                 .block();
 
         String accessToken = (String) tokenResponse.get("access_token");
-        tempJiraTokens.put(teamId, accessToken);
+        String refreshToken = (String) tokenResponse.get("refresh_token");
+        Map<String, String> tokens = new HashMap<>();
+        tokens.put("access_token", accessToken);
+        if (refreshToken != null) tokens.put("refresh_token", refreshToken);
+        tempJiraTokens.put(teamId, tokens);
 
         // 2. Get Accessible Resources (Sites)
         List<Map<String, Object>> resources = webClient.get()
@@ -120,7 +124,8 @@ public class ProjectIntegrationService {
 
     public List<AvailableJiraProjectDTO> getAvailableJiraProjects(UUID userId, UUID teamId, String siteId) {
         checkLeaderPermission(userId, teamId);
-        String accessToken = tempJiraTokens.get(teamId);
+        Map<String, String> tokens = tempJiraTokens.get(teamId);
+        String accessToken = tokens != null ? tokens.get("access_token") : null;
         if (accessToken == null) {
             throw new IllegalStateException("No active Jira connection process found. Please reconnect.");
         }
@@ -164,6 +169,12 @@ public class ProjectIntegrationService {
         entity.setBoardName(request.getBoardName() != null ? request.getBoardName() : request.getProjectKey() + " Board");
         entity.setStatus(IntegrationStatus.LINKED);
         entity.setLinkedAt(LocalDateTime.now());
+        
+        Map<String, String> tokens = tempJiraTokens.get(teamId);
+        if (tokens != null) {
+            entity.setAccessToken(tokens.get("access_token"));
+            entity.setRefreshToken(tokens.get("refresh_token"));
+        }
         
         // Remove token from temp storage to free memory
         tempJiraTokens.remove(teamId);
@@ -238,8 +249,15 @@ public class ProjectIntegrationService {
                 entity.setRepoId("GH-INST-" + installationId + "-" + repoName);
                 entity.setRepoName(repoName);
                 entity.setRepoUrl(url);
+                entity.setAccessToken(installationId); // For now, store installation ID as token to be used to fetch commits
                 entity.setStatus(IntegrationStatus.LINKED);
                 entity.setLinkedAt(LocalDateTime.now());
+        
+        Map<String, String> tokens = tempJiraTokens.get(teamId);
+        if (tokens != null) {
+            entity.setAccessToken(tokens.get("access_token"));
+            entity.setRefreshToken(tokens.get("refresh_token"));
+        }
                 savedRepos.add(gitRepoRepository.save(entity));
             }
         }
@@ -270,6 +288,7 @@ public class ProjectIntegrationService {
         }
     }
 }
+
 
 
 
