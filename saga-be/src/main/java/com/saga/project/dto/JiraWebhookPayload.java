@@ -21,6 +21,20 @@ public class JiraWebhookPayload {
         private String summary;
         private Assignee assignee;
         private Status status;
+        private java.util.List<Attachment> attachment;
+    }
+
+    @Data
+    public static class Attachment {
+        private String filename;
+        private String content; // URL to download
+    }
+
+    @Data
+    public static class DummyFields {
+        private String summary;
+        private Assignee assignee;
+        private Status status;
     }
 
     @Data
@@ -35,3 +49,4 @@ public class JiraWebhookPayload {
         private String name;
     }
 }
+

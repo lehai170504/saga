@@ -26,4 +26,14 @@ public class Task {
     private UUID assigneeId;
     @ElementCollection
     private List<String> labels;
+    
+    @Column(name = "summary")
+    private String summary;
+    
+    @Column(name = "status")
+    private String status;
+    
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "task_attachments", joinColumns = @JoinColumn(name = "task_id"))
+    private List<TaskAttachment> attachments;
 }
