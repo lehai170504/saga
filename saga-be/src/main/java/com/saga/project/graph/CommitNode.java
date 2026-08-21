@@ -22,8 +22,11 @@ public class CommitNode {
     private UUID id;
 
     private String hash;
+    private String message;
+    private String timestamp;
 
     @Relationship(type = "IMPLEMENTS", direction = Relationship.Direction.OUTGOING)
     @Builder.Default
     private List<JiraTaskNode> implementsTasks = new ArrayList<>();
 }
+

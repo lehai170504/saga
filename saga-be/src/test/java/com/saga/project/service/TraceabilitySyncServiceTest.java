@@ -48,11 +48,11 @@ class TraceabilitySyncServiceTest {
         // Mock Payload
         GithubWebhookPayload payload = new GithubWebhookPayload();
         payload.setRef("refs/heads/main");
-        
+
         GithubWebhookPayload.Repository repo = new GithubWebhookPayload.Repository();
         repo.setId("ext-repo-123");
         payload.setRepository(repo);
-        
+
         GithubWebhookPayload.Commit commit = new GithubWebhookPayload.Commit();
         commit.setId("hash123");
         commit.setMessage("Fix issue SAGA-45 for the login screen");
@@ -60,29 +60,29 @@ class TraceabilitySyncServiceTest {
         author.setEmail("test@saga.com");
         commit.setAuthor(author);
         payload.setCommits(Collections.singletonList(commit));
-        
+
         // Mock GitRepo lookup
         GitRepo gitRepoEntity = new GitRepo();
         gitRepoEntity.setId(UUID.randomUUID());
         when(gitRepoRepository.findByRepoId("ext-repo-123")).thenReturn(Optional.of(gitRepoEntity));
-        
+
         // Mock Commit verification (not exists)
         when(commitDataRepository.findByHash("hash123")).thenReturn(Optional.empty());
-        
+
         // Mock Commit save
         CommitData savedCommit = new CommitData();
         savedCommit.setId(UUID.randomUUID());
         when(commitDataRepository.save(any(CommitData.class))).thenReturn(savedCommit);
-        
+
         // Mock Task lookup
         Task task = new Task();
         task.setId(UUID.randomUUID());
         task.setIssueKey("SAGA-45");
         when(taskRepository.findByIssueKey("SAGA-45")).thenReturn(Optional.of(task));
-        
+
         // Execute
         traceabilitySyncService.handleGithubWebhook(payload);
-        
+
         // Verify
         verify(commitDataRepository, times(1)).save(any(CommitData.class));
         verify(taskRepository, times(1)).findByIssueKey("SAGA-45");

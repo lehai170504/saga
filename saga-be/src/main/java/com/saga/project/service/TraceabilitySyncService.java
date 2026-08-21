@@ -6,6 +6,10 @@ import com.saga.project.entity.CommitData;
 import com.saga.project.entity.GitRepo;
 import com.saga.project.entity.TaskCommitLink;
 import com.saga.project.entity.Task;
+import com.saga.project.graph.CommitNode;
+import com.saga.project.graph.CommitNodeRepository;
+import com.saga.project.graph.JiraTaskNode;
+import com.saga.project.graph.JiraTaskNodeRepository;
 import com.saga.project.entity.TaskAttachment;
 import com.saga.project.repository.JpaCommitDataRepository;
 import com.saga.project.repository.JpaGitRepoRepository;
@@ -28,17 +32,23 @@ public class TraceabilitySyncService {
     private final JpaCommitDataRepository commitDataRepository;
     private final JpaTaskRepository taskRepository;
     private final JpaTaskCommitLinkRepository taskCommitLinkRepository;
+    private final JiraTaskNodeRepository jiraTaskNodeRepository;
+    private final CommitNodeRepository commitNodeRepository;
 
     private static final Pattern JIRA_KEY_PATTERN = Pattern.compile("([A-Z]+-[0-9]+)");
 
     public TraceabilitySyncService(JpaGitRepoRepository gitRepoRepository,
-                                   JpaCommitDataRepository commitDataRepository,
-                                   JpaTaskRepository taskRepository,
-                                   JpaTaskCommitLinkRepository taskCommitLinkRepository) {
+            JpaCommitDataRepository commitDataRepository,
+            JpaTaskRepository taskRepository,
+            JpaTaskCommitLinkRepository taskCommitLinkRepository,
+            JiraTaskNodeRepository jiraTaskNodeRepository,
+            CommitNodeRepository commitNodeRepository) {
         this.gitRepoRepository = gitRepoRepository;
         this.commitDataRepository = commitDataRepository;
         this.taskRepository = taskRepository;
         this.taskCommitLinkRepository = taskCommitLinkRepository;
+        this.jiraTaskNodeRepository = jiraTaskNodeRepository;
+        this.commitNodeRepository = commitNodeRepository;
     }
 
     @Async
@@ -46,8 +56,9 @@ public class TraceabilitySyncService {
     public void handleJiraWebhook(JiraWebhookPayload payload) {
         log.info("Received Jira webhook event: {}", payload.getWebhookEvent());
         try {
-            if (payload == null || payload.getIssue() == null) return;
-            
+            if (payload == null || payload.getIssue() == null)
+                return;
+
             String issueKey = payload.getIssue().getKey();
             Optional<Task> taskOpt = taskRepository.findByIssueKey(issueKey);
             if (taskOpt.isPresent()) {
@@ -58,7 +69,8 @@ public class TraceabilitySyncService {
                         task.setStatus(payload.getIssue().getFields().getStatus().getName());
                     }
                     if (payload.getIssue().getFields().getAttachment() != null) {
-                        java.util.List<TaskAttachment> attachments = payload.getIssue().getFields().getAttachment().stream()
+                        java.util.List<TaskAttachment> attachments = payload.getIssue().getFields().getAttachment()
+                                .stream()
                                 .map(a -> TaskAttachment.builder()
                                         .filename(a.getFilename())
                                         .url(a.getContent())
@@ -68,6 +80,13 @@ public class TraceabilitySyncService {
                     }
                 }
                 taskRepository.save(task);
+
+                // Sync to Neo4j
+                JiraTaskNode taskNode = jiraTaskNodeRepository.findByIssueKey(payload.getIssue().getKey())
+                        .orElse(new JiraTaskNode());
+                taskNode.setIssueKey(task.getIssueKey());
+                taskNode.setStatus(task.getStatus());
+                jiraTaskNodeRepository.save(taskNode);
                 log.info("Updated Jira Task: {} with summary and attachments", issueKey);
             }
         } catch (Exception e) {
@@ -77,63 +96,74 @@ public class TraceabilitySyncService {
 
     public void handleGithubWebhook(GithubWebhookPayload payload) {
         try {
-        if (payload == null || payload.getRepository() == null || payload.getCommits() == null) {
-            return; // Invalid payload
-        }
-
-        String externalRepoId = payload.getRepository().getId();
-        Optional<GitRepo> repoOpt = gitRepoRepository.findByRepoId(externalRepoId);
-        
-        if (repoOpt.isEmpty()) {
-            return; // Repo not linked in our system
-        }
-        GitRepo repo = repoOpt.get();
-
-        String branchName = "unknown";
-        if (payload.getRef() != null && payload.getRef().startsWith("refs/heads/")) {
-            branchName = payload.getRef().substring(11); // Extract branch name after refs/heads/
-        }
-
-        for (GithubWebhookPayload.Commit commit : payload.getCommits()) {
-            // Avoid duplicate commits
-            if (commitDataRepository.findByHash(commit.getId()).isPresent()) {
-                continue; 
+            if (payload == null || payload.getRepository() == null || payload.getCommits() == null) {
+                return; // Invalid payload
             }
 
-            // Save Commit
-            CommitData commitEntity = new CommitData();
-            commitEntity.setRepoId(repo.getId());
-            commitEntity.setHash(commit.getId());
-            commitEntity.setMessage(commit.getMessage());
-            commitEntity.setBranchName(branchName);
-            if (commit.getAuthor() != null) {
-                commitEntity.setAuthorEmail(commit.getAuthor().getEmail());
-            }
-            commitEntity = commitDataRepository.save(commitEntity);
+            String externalRepoId = payload.getRepository().getId();
+            Optional<GitRepo> repoOpt = gitRepoRepository.findByRepoId(externalRepoId);
 
-            // Data Linkage via Regex
-            if (commit.getMessage() != null) {
-                Matcher matcher = JIRA_KEY_PATTERN.matcher(commit.getMessage());
-                while (matcher.find()) {
-                    String issueKey = matcher.group(1);
-                    Optional<Task> taskOpt = taskRepository.findByIssueKey(issueKey);
-                    
-                    if (taskOpt.isPresent()) {
-                        Task task = taskOpt.get();
-                        TaskCommitLink link = new TaskCommitLink();
-                        link.setTaskId(task.getId());
-                        link.setCommitId(commitEntity.getId());
-                        taskCommitLinkRepository.save(link);
+            if (repoOpt.isEmpty()) {
+                return; // Repo not linked in our system
+            }
+            GitRepo repo = repoOpt.get();
+
+            String branchName = "unknown";
+            if (payload.getRef() != null && payload.getRef().startsWith("refs/heads/")) {
+                branchName = payload.getRef().substring(11); // Extract branch name after refs/heads/
+            }
+
+            for (GithubWebhookPayload.Commit commit : payload.getCommits()) {
+                // Avoid duplicate commits
+                if (commitDataRepository.findByHash(commit.getId()).isPresent()) {
+                    continue;
+                }
+
+                // Save Commit
+                CommitData commitEntity = new CommitData();
+                commitEntity.setRepoId(repo.getId());
+                commitEntity.setHash(commit.getId());
+                commitEntity.setMessage(commit.getMessage());
+                commitEntity.setBranchName(branchName);
+                if (commit.getAuthor() != null) {
+                    commitEntity.setAuthorEmail(commit.getAuthor().getEmail());
+                }
+                commitEntity = commitDataRepository.save(commitEntity);
+
+                // Sync to Neo4j
+                CommitNode commitNode = commitNodeRepository.findByHash(commit.getId()).orElse(new CommitNode());
+                commitNode.setHash(commit.getId());
+                commitNode.setMessage(commit.getMessage());
+                commitNode.setTimestamp(java.time.LocalDateTime.now().toString());
+                commitNodeRepository.save(commitNode);
+
+                // Data Linkage via Regex
+                if (commit.getMessage() != null) {
+                    Matcher matcher = JIRA_KEY_PATTERN.matcher(commit.getMessage());
+                    while (matcher.find()) {
+                        String issueKey = matcher.group(1);
+                        Optional<Task> taskOpt = taskRepository.findByIssueKey(issueKey);
+
+                        if (taskOpt.isPresent()) {
+                            Task task = taskOpt.get();
+                            TaskCommitLink link = new TaskCommitLink();
+                            link.setTaskId(task.getId());
+                            link.setCommitId(commitEntity.getId());
+                            taskCommitLinkRepository.save(link);
+
+                            // Sync relationship to Neo4j
+                            JiraTaskNode taskNode = jiraTaskNodeRepository.findByIssueKey(issueKey).orElse(null);
+                            if (taskNode != null) {
+                                commitNode.getImplementsTasks().add(taskNode);
+                                commitNodeRepository.save(commitNode);
+                            }
+                        }
                     }
                 }
             }
-        }
         } catch (Exception e) {
             // Log error so the async thread doesn't just die silently
             System.err.println("Error processing webhook: " + e.getMessage());
         }
     }
 }
-
-
-

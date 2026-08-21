@@ -7,4 +7,6 @@ import java.util.UUID;
 
 @Repository
 public interface JiraTaskNodeRepository extends Neo4jRepository<JiraTaskNode, UUID> {
+    java.util.Optional<JiraTaskNode> findByIssueKey(String issueKey);
 }
+

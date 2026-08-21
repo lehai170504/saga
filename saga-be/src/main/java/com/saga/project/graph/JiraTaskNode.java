@@ -19,4 +19,7 @@ public class JiraTaskNode {
     private UUID id;
     
     private String issueKey;
+    private Integer storyPoint;
+    private String status;
 }
+

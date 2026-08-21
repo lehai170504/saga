@@ -7,4 +7,6 @@ import java.util.UUID;
 
 @Repository
 public interface CommitNodeRepository extends Neo4jRepository<CommitNode, UUID> {
+    java.util.Optional<CommitNode> findByHash(String hash);
 }
+

@@ -49,10 +49,10 @@ public class ProjectIntegrationService {
     private final Map<UUID, String> tempGithubInstallations = new ConcurrentHashMap<>();
 
     public ProjectIntegrationService(JpaJiraBoardRepository jiraBoardRepository,
-                                     JpaGitRepoRepository gitRepoRepository,
-                                     TeamValidationService teamValidationPort,
-                                     InitialSyncService initialSyncService,
-                                     WebClient.Builder webClientBuilder) {
+            JpaGitRepoRepository gitRepoRepository,
+            TeamValidationService teamValidationPort,
+            InitialSyncService initialSyncService,
+            WebClient.Builder webClientBuilder) {
         this.jiraBoardRepository = jiraBoardRepository;
         this.gitRepoRepository = gitRepoRepository;
         this.teamValidationPort = teamValidationPort;
@@ -102,7 +102,8 @@ public class ProjectIntegrationService {
         String refreshToken = (String) tokenResponse.get("refresh_token");
         Map<String, String> tokens = new HashMap<>();
         tokens.put("access_token", accessToken);
-        if (refreshToken != null) tokens.put("refresh_token", refreshToken);
+        if (refreshToken != null)
+            tokens.put("refresh_token", refreshToken);
         tempJiraTokens.put(teamId, tokens);
 
         // 2. Get Accessible Resources (Sites)
@@ -110,10 +111,12 @@ public class ProjectIntegrationService {
                 .uri("https://api.atlassian.com/oauth/token/accessible-resources")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
+                })
                 .block();
 
-        if (resources == null) return Collections.emptyList();
+        if (resources == null)
+            return Collections.emptyList();
 
         return resources.stream().map(res -> AvailableJiraSiteDTO.builder()
                 .id((String) res.get("id"))
@@ -136,10 +139,12 @@ public class ProjectIntegrationService {
                     .uri("https://api.atlassian.com/ex/jira/" + siteId + "/rest/api/3/project")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                     .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+                    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
+                    })
                     .block();
 
-            if (projects == null) return Collections.emptyList();
+            if (projects == null)
+                return Collections.emptyList();
 
             return projects.stream().map(p -> AvailableJiraProjectDTO.builder()
                     .id((String) p.get("id"))
@@ -155,7 +160,7 @@ public class ProjectIntegrationService {
     @Transactional
     public JiraBoard confirmJiraProject(UUID userId, UUID teamId, JiraConfirmRequest request) {
         checkLeaderPermission(userId, teamId);
-        
+
         Optional<JiraBoard> existing = jiraBoardRepository.findByTeamId(teamId);
         if (existing.isPresent()) {
             throw new IllegalStateException("Team is already linked to a Jira Board.");
@@ -166,16 +171,17 @@ public class ProjectIntegrationService {
         entity.setBoardId(request.getSiteId()); // using boardId for cloudId historically, or use siteId
         entity.setSiteId(request.getSiteId());
         entity.setProjectKey(request.getProjectKey());
-        entity.setBoardName(request.getBoardName() != null ? request.getBoardName() : request.getProjectKey() + " Board");
+        entity.setBoardName(
+                request.getBoardName() != null ? request.getBoardName() : request.getProjectKey() + " Board");
         entity.setStatus(IntegrationStatus.LINKED);
         entity.setLinkedAt(LocalDateTime.now());
-        
+
         Map<String, String> tokens = tempJiraTokens.get(teamId);
         if (tokens != null) {
             entity.setAccessToken(tokens.get("access_token"));
             entity.setRefreshToken(tokens.get("refresh_token"));
         }
-        
+
         // Remove token from temp storage to free memory
         tempJiraTokens.remove(teamId);
 
@@ -217,28 +223,32 @@ public class ProjectIntegrationService {
         checkLeaderPermission(userId, teamId);
         tempGithubInstallations.put(teamId, installationId);
 
-        // In a real app, we would generate a JWT for the Github App, then exchange for an Installation Access Token
+        // In a real app, we would generate a JWT for the Github App, then exchange for
+        // an Installation Access Token
         // and call https://api.github.com/installation/repositories
-        // For this implementation, we will mock the return for demonstration, or implement the JWT flow if needed.
-        
-        // MOCK DATA for now since full Github App JWT is complex to setup without private key file
+        // For this implementation, we will mock the return for demonstration, or
+        // implement the JWT flow if needed.
+
+        // MOCK DATA for now since full Github App JWT is complex to setup without
+        // private key file
         return Arrays.asList(
-                AvailableGithubRepoDTO.builder().id("12345").fullName("fpt-edu/saga-backend").url("https://github.com/fpt-edu/saga-backend").isPrivate(false).build(),
-                AvailableGithubRepoDTO.builder().id("12346").fullName("fpt-edu/saga-frontend").url("https://github.com/fpt-edu/saga-frontend").isPrivate(false).build()
-        );
+                AvailableGithubRepoDTO.builder().id("12345").fullName("fpt-edu/saga-backend")
+                        .url("https://github.com/fpt-edu/saga-backend").isPrivate(false).build(),
+                AvailableGithubRepoDTO.builder().id("12346").fullName("fpt-edu/saga-frontend")
+                        .url("https://github.com/fpt-edu/saga-frontend").isPrivate(false).build());
     }
 
     @Transactional
     public List<GitRepo> confirmGithubRepos(UUID userId, UUID teamId, GithubConfirmRequest request) {
         checkLeaderPermission(userId, teamId);
-        
+
         String installationId = tempGithubInstallations.get(teamId);
         if (installationId == null) {
             throw new IllegalStateException("No active Github connection process found.");
         }
 
         List<GitRepo> savedRepos = new ArrayList<>();
-        
+
         for (String url : request.getRepoUrls()) {
             // Check if already linked
             Optional<GitRepo> existing = gitRepoRepository.findByRepoUrl(url);
@@ -249,19 +259,20 @@ public class ProjectIntegrationService {
                 entity.setRepoId("GH-INST-" + installationId + "-" + repoName);
                 entity.setRepoName(repoName);
                 entity.setRepoUrl(url);
-                entity.setAccessToken(installationId); // For now, store installation ID as token to be used to fetch commits
+                entity.setAccessToken(installationId); // For now, store installation ID as token to be used to fetch
+                                                       // commits
                 entity.setStatus(IntegrationStatus.LINKED);
                 entity.setLinkedAt(LocalDateTime.now());
-        
-        Map<String, String> tokens = tempJiraTokens.get(teamId);
-        if (tokens != null) {
-            entity.setAccessToken(tokens.get("access_token"));
-            entity.setRefreshToken(tokens.get("refresh_token"));
-        }
+
+                Map<String, String> tokens = tempJiraTokens.get(teamId);
+                if (tokens != null) {
+                    entity.setAccessToken(tokens.get("access_token"));
+                    entity.setRefreshToken(tokens.get("refresh_token"));
+                }
                 savedRepos.add(gitRepoRepository.save(entity));
             }
         }
-        
+
         tempGithubInstallations.remove(teamId);
 
         initialSyncService.syncGithubCommits(teamId, request.getRepoUrls());
@@ -276,7 +287,8 @@ public class ProjectIntegrationService {
         if (repos.isEmpty()) {
             throw new IllegalStateException("Team is not linked to Github.");
         }
-        initialSyncService.syncGithubCommits(teamId, repos.stream().map(GitRepo::getRepoUrl).collect(Collectors.toList()));
+        initialSyncService.syncGithubCommits(teamId,
+                repos.stream().map(GitRepo::getRepoUrl).collect(Collectors.toList()));
     }
 
     @Transactional
@@ -288,8 +300,3 @@ public class ProjectIntegrationService {
         }
     }
 }
-
-
-
-
-
