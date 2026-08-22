@@ -24,7 +24,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.util.Base64;
 import lombok.extern.slf4j.Slf4j;
+import com.saga.shared.service.CloudinaryService;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 @Slf4j
@@ -38,8 +45,15 @@ public class TraceabilitySyncService {
     private final CommitNodeRepository commitNodeRepository;
     private final JpaJiraBoardRepository jiraBoardRepository;
     private final AiCommitAnalyzerService aiCommitAnalyzerService;
+    private final CloudinaryService cloudinaryService;
 
     private static final Pattern JIRA_KEY_PATTERN = Pattern.compile("([A-Z]+-[0-9]+)");
+
+    @Value("${app.jira.bot-email:}")
+    private String jiraBotEmail;
+
+    @Value("${app.jira.bot-api-token:}")
+    private String jiraBotToken;
 
     public TraceabilitySyncService(JpaGitRepoRepository gitRepoRepository,
             JpaCommitDataRepository commitDataRepository,
@@ -48,7 +62,8 @@ public class TraceabilitySyncService {
             JiraTaskNodeRepository jiraTaskNodeRepository,
             CommitNodeRepository commitNodeRepository,
             JpaJiraBoardRepository jiraBoardRepository,
-            AiCommitAnalyzerService aiCommitAnalyzerService) {
+            AiCommitAnalyzerService aiCommitAnalyzerService,
+            CloudinaryService cloudinaryService) {
         this.gitRepoRepository = gitRepoRepository;
         this.commitDataRepository = commitDataRepository;
         this.taskRepository = taskRepository;
@@ -57,6 +72,7 @@ public class TraceabilitySyncService {
         this.commitNodeRepository = commitNodeRepository;
         this.jiraBoardRepository = jiraBoardRepository;
         this.aiCommitAnalyzerService = aiCommitAnalyzerService;
+        this.cloudinaryService = cloudinaryService;
     }
 
     @Async
@@ -92,10 +108,45 @@ public class TraceabilitySyncService {
                 if (payload.getIssue().getFields().getAttachment() != null) {
                     java.util.List<TaskAttachment> attachments = payload.getIssue().getFields().getAttachment()
                             .stream()
-                            .map(a -> TaskAttachment.builder()
-                                    .filename(a.getFilename())
-                                    .url(a.getContent())
-                                    .build())
+                            .map(a -> {
+                                String downloadUrl = a.getContent();
+                                // Try downloading and uploading to Cloudinary
+                                if (jiraBotEmail != null && !jiraBotEmail.isEmpty() && jiraBotToken != null
+                                        && !jiraBotToken.isEmpty()) {
+                                    try {
+                                        String auth = jiraBotEmail + ":" + jiraBotToken;
+                                        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
+
+                                        HttpClient client = HttpClient.newBuilder()
+                                                .followRedirects(HttpClient.Redirect.NORMAL).build();
+                                        HttpRequest request = HttpRequest.newBuilder()
+                                                .uri(URI.create(downloadUrl))
+                                                .header("Authorization", "Basic " + encodedAuth)
+                                                .GET()
+                                                .build();
+
+                                        HttpResponse<byte[]> response = client.send(request,
+                                                HttpResponse.BodyHandlers.ofByteArray());
+                                        if (response.statusCode() == 200) {
+                                            downloadUrl = cloudinaryService.uploadFile(response.body(),
+                                                    a.getFilename());
+                                            log.info("Successfully uploaded Jira attachment to Cloudinary: {}",
+                                                    downloadUrl);
+                                        } else {
+                                            log.warn("Failed to download Jira attachment from {}, status: {}",
+                                                    downloadUrl, response.statusCode());
+                                        }
+                                    } catch (Exception e) {
+                                        log.error("Error downloading/uploading Jira attachment: {}", a.getFilename(),
+                                                e);
+                                    }
+                                }
+
+                                return TaskAttachment.builder()
+                                        .filename(a.getFilename())
+                                        .url(downloadUrl)
+                                        .build();
+                            })
                             .collect(java.util.stream.Collectors.toList());
                     task.setAttachments(attachments);
                 }
@@ -150,7 +201,8 @@ public class TraceabilitySyncService {
                 commitEntity = commitDataRepository.save(commitEntity);
 
                 // Trigger AI Code Analyzer
-                aiCommitAnalyzerService.analyzeCommit(externalRepoId, commit.getId(), commit.getMessage(), commitEntity.getAuthorEmail());
+                aiCommitAnalyzerService.analyzeCommit(externalRepoId, commit.getId(), commit.getMessage(),
+                        commitEntity.getAuthorEmail());
 
                 CommitNode commitNode = commitNodeRepository.findByHash(commit.getId()).orElse(new CommitNode());
                 commitNode.setHash(commit.getId());
@@ -173,7 +225,8 @@ public class TraceabilitySyncService {
                             task.setStatus("PENDING");
                             if (issueKey != null && issueKey.contains("-")) {
                                 String projectKey = issueKey.split("-")[0];
-                                java.util.Optional<JiraBoard> boardOpt = jiraBoardRepository.findByProjectKey(projectKey);
+                                java.util.Optional<JiraBoard> boardOpt = jiraBoardRepository
+                                        .findByProjectKey(projectKey);
                                 if (boardOpt.isPresent()) {
                                     task.setBoardId(boardOpt.get().getId());
                                 }
@@ -193,7 +246,7 @@ public class TraceabilitySyncService {
                             taskNode.setStatus("PENDING");
                             taskNode = jiraTaskNodeRepository.save(taskNode);
                         }
-                        
+
                         commitNode.getImplementsTasks().add(taskNode);
                         commitNodeRepository.save(commitNode);
                     }
