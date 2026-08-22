@@ -19,6 +19,7 @@ public class StudentEvaluationService {
     }
 
     @Transactional
+    @com.saga.shared.annotation.LogAction(actionType = "SUBMIT_PEER_REVIEW")
     public PeerReview submitPeerReview(UUID reviewerId, PeerReviewRequest request) {
         if (reviewerId.equals(request.getRevieweeId())) {
             throw new BadRequestException("Reviewer and reviewee cannot be the same person");

@@ -3,6 +3,7 @@ package com.saga.auth.service;
 import com.saga.user.repository.JpaUserRepository;
 import com.saga.user.repository.JpaStudentRepository;
 import com.saga.user.repository.JpaLecturerRepository;
+import com.saga.project.service.SystemAuditLogService;
 
 import com.saga.auth.dto.AuthResponse;
 import com.saga.auth.dto.GoogleLoginRequest;
@@ -32,6 +33,7 @@ public class AuthService implements LoginUseCase {
     private final JpaLecturerRepository lecturerRepository;
     private final JwtProviderService jwtProviderPort;
     private final PasswordEncoder passwordEncoder;
+    private final SystemAuditLogService auditLogService;
 
     @Value("#{'${app.auth.admin-emails:}'.split(',')}")
     private List<String> adminEmails;
@@ -47,13 +49,15 @@ public class AuthService implements LoginUseCase {
             JpaStudentRepository studentRepository,
             JpaLecturerRepository lecturerRepository,
             JwtProviderService jwtProviderPort,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            SystemAuditLogService auditLogService) {
         this.googleAuthPort = googleAuthPort;
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
         this.studentRepository = studentRepository;
         this.lecturerRepository = lecturerRepository;
         this.jwtProviderPort = jwtProviderPort;
+        this.auditLogService = auditLogService;
     }
 
     @Override
@@ -111,6 +115,8 @@ public class AuthService implements LoginUseCase {
 
         String token = jwtProviderPort.generateToken(user);
 
+        auditLogService.logActionAsync(user.getId(), "USER_LOGIN", java.util.Map.of("provider", "google"));
+
         return AuthResponse.builder()
                 .accessToken(token)
                 .role(user.getRole().name())
@@ -150,6 +156,9 @@ public class AuthService implements LoginUseCase {
         }
 
         String token = jwtProviderPort.generateToken(user);
+
+        auditLogService.logActionAsync(user.getId(), "USER_LOGIN", java.util.Map.of("provider", "local"));
+
         return AuthResponse.builder()
                 .accessToken(token)
                 .role(user.getRole().name())

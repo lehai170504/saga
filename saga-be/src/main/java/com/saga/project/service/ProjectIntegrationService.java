@@ -177,6 +177,7 @@ public class ProjectIntegrationService {
     }
 
     @Transactional
+    @com.saga.shared.annotation.LogAction(actionType = "LINK_JIRA_BOARD")
     public JiraBoard confirmJiraProject(UUID userId, UUID teamId, JiraConfirmRequest request) {
         checkLeaderPermission(userId, teamId);
 
@@ -272,6 +273,7 @@ public class ProjectIntegrationService {
     }
 
     @Transactional
+    @com.saga.shared.annotation.LogAction(actionType = "LINK_GITHUB_REPO")
     public List<GitRepo> confirmGithubRepos(UUID userId, UUID teamId, GithubConfirmRequest request) {
         checkLeaderPermission(userId, teamId);
 

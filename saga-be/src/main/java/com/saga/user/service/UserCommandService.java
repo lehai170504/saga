@@ -18,6 +18,7 @@ public class UserCommandService {
     }
 
     @Transactional
+    @com.saga.shared.annotation.LogAction(actionType = "UPDATE_USER_STATUS")
     public void updateUserStatus(UUID userId, UserStatus status) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BadRequestException("User not found"));

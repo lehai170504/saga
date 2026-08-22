@@ -39,6 +39,7 @@ public class CourseService {
     }
 
     @Transactional
+    @com.saga.shared.annotation.LogAction(actionType = "CREATE_COURSE")
     public CourseResponse createCourse(CourseRequest request) {
         if (!semesterRepository.existsById(request.getSemesterId()))
             throw new BadRequestException("Semester not found");

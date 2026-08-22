@@ -96,6 +96,7 @@ public class CourseRosterService {
     }
 
     @Transactional
+    @com.saga.shared.annotation.LogAction(actionType = "IMPORT_ROSTER")
     public void importRoster(UUID courseId, MultipartFile file) {
         Course course = getCourse(courseId);
         validateActiveSemester(course);
