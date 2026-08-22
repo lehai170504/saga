@@ -38,9 +38,9 @@ public class LecturerTeamController {
     @GetMapping("/{courseId}/template")
     @Operation(summary = "Download Team Grouping Template", description = "Lecturer downloads an Excel template for a specific course to fill in team assignments.")
     @ApiResponses({
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Excel file downloaded successfully"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this course")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Excel file downloaded successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this course")
     })
     public ResponseEntity<byte[]> downloadTemplate(@PathVariable UUID courseId) {
         User user = getCurrentUser();
@@ -55,15 +55,32 @@ public class LecturerTeamController {
     @PostMapping(value = "/{courseId}/import-teams", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Import Team Grouping", description = "Lecturer uploads the filled Excel file to map students into teams for the course.")
     @ApiResponses({
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Teams imported successfully"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid Excel format or data"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this course")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Teams imported successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid Excel format or data"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this course")
     })
     public ResponseEntity<ApiResponse<Void>> importTeams(@PathVariable UUID courseId,
             @RequestParam("file") MultipartFile file) {
         User user = getCurrentUser();
         courseRosterService.importTeamGrouping(courseId, user.getId(), file);
         return ResponseEntity.ok(ApiResponse.success(null, "Teams imported successfully"));
+    }
+
+    @PutMapping(value = "/{courseId}/teams/{teamId}/leader")
+    @Operation(summary = "Update Team Leader", description = "Lecturer assigns a new leader for a team.")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Team leader updated successfully"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Invalid request"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this course")
+    })
+    public ResponseEntity<ApiResponse<Void>> updateTeamLeader(
+            @PathVariable UUID courseId,
+            @PathVariable UUID teamId,
+            @RequestBody com.saga.academic.dto.UpdateTeamLeaderRequest request) {
+        User user = getCurrentUser();
+        courseRosterService.updateTeamLeader(courseId, teamId, request.getNewLeaderStudentId(), user.getId());
+        return ResponseEntity.ok(ApiResponse.success(null, "Team leader updated successfully"));
     }
 }
