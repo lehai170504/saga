@@ -1,13 +1,14 @@
-﻿# SYSTEM CONTEXT: SAGA (Student Activity Graph-Based Assessment)
+# SYSTEM CONTEXT: SAGA (Student Activity Graph-Based Assessment)
 
 ## 1. PROJECT OVERVIEW
 SAGA là hệ thống quản lý học vụ và đánh giá đồ án sinh viên dựa trên đồ thị. Hệ thống tích hợp với Jira và GitHub thông qua Webhook để tự động thu thập dữ liệu (Tasks, Commits), liên kết vết (Traceability) và tính toán điểm đóng góp của từng thành viên trong nhóm dựa trên cấu hình trọng số và đánh giá đồng cấp.
 
 ## 2. TECH STACK & ARCHITECTURE
 *   **Backend:** Java 17, Spring Boot 3.
-*   **Database:** PostgreSQL (Supabase) cho quan hệ, Neo4j cho đồ thị. Flyway quản lý migration (
-esources/db/migration).
+*   **Database:** PostgreSQL (Supabase) cho quan hệ, Neo4j cho đồ thị (hiện thực hóa logic CA). Flyway quản lý migration (resources/db/migration).
 *   **Architecture:** Package-by-Feature (Ví dụ: auth, identity, academic, project, evaluation, graph, shared).
+*   **Real-time:** WebSocket (STOMP) cho Notification & AI Review Alerts.
+*   **AI Integration:** Sử dụng Strategy Pattern kết nối Grok (x.ai) và Gemini (Google) để phân tích Commit tự động.
 *   **Internal Module Structure:** Phân vùng thư mục:
     *   controller: REST APIs.
     *   dto: Request/Response Data Transfer Objects.
@@ -56,6 +57,10 @@ ame.
 *   **task_attachments**: task_id (FK -> tasks), filename, url.
 *   **commit_data**: id (PK, UUID), repo_id (FK -> git_repos), hash, message, author_email, branch_name, created_at.
 *   **task_commit_links**: id (PK, UUID), task_id (FK -> tasks), commit_id (FK -> commit_data).
+
+### Module: Notification & Audit Log
+*   **notifications**: id (PK, UUID), recipient_id (FK -> users.id), team_id (FK -> teams.id, nullable), title, message, type (SYSTEM, AI_REVIEW, JIRA_SYNC, GITHUB_SYNC), is_read, created_at.
+*   **system_audit_logs**: id (PK, UUID), action, entity_name, entity_id, performed_by, timestamp, details.
 
 ### Module: Evaluation (Đánh giá & Trọng số)
 *   **task_weight_configs**: id (PK, UUID), course_id (nullable), team_id (nullable), doc_weight, code_weight, test_weight, research_weight.

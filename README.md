@@ -1,4 +1,4 @@
-﻿# Saga - Student Academic & Project Management System
+# Saga - Student Academic & Project Management System
 
 Chào mừng đến với dự án **Saga**! Đây là một hệ thống quản lý học vụ và tích hợp nền tảng quản lý dự án (Jira, GitHub), được xây dựng trên kiến trúc hướng dịch vụ (Microservices-ready) dành cho môi trường giáo dục đại học.
 
@@ -35,6 +35,9 @@ Backend được xây dựng chuẩn **Clean Architecture** kết hợp **Packag
   - Áp dụng Dependency Inversion (DIP) để module Project có thể giao tiếp lỏng lẻo với module Academic.
   - Sử dụng **WebClient** (Non-blocking) để kết nối Real API với Atlassian và GitHub (đổi OAuth Code lấy Cloud ID / Installation ID thật).
   - Tích hợp **Webhook** từ GitHub: Sử dụng `@Async` ThreadPool nhận Webhook không block I/O. Áp dụng Regex tự động móc nối Commit Message (chứa mã Jira VD: `SAGA-12`) vào Task.
+  - **AI Commit Analyzer**: Tích hợp Grok (x.ai) và Gemini (Google) thông qua Strategy Pattern để tự động review code commit.
+  - **Real-time Notifications**: Sử dụng **WebSocket (STOMP)** để bắn thông báo và Cảnh báo AI (AI Review Alerts) tức thời cho team.
+  - **Graph CA**: Vẽ đồ thị điểm (Continuous Assessment) thông qua Neo4j database.
 
 ### 2. Saga Frontend (`saga-fe`) - ĐANG LÊN KẾ HOẠCH (PLANNING)
 - Dự kiến sử dụng ReactJS / NextJS với TypeScript.
@@ -54,9 +57,10 @@ Backend được xây dựng chuẩn **Clean Architecture** kết hợp **Packag
 - **Redis**: Port `6379` (Khuyến nghị dùng Docker: `docker run -p 6379:6379 -d redis`)
 
 ### 2. Thiết lập Backend (`saga-be`)
-Cấu hình các biến môi trường hoặc file `application.yml` trước khi chạy:
+Cấu hình các biến môi trường hoặc file `application.yml` (hoặc `.env`) trước khi chạy:
 - Google OAuth: `GOOGLE_CLIENT_ID`
 - Jira/GitHub OAuth: `JIRA_CLIENT_ID`, `JIRA_CLIENT_SECRET`, `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
+- Cấu hình AI: `AI_PROVIDER` (grok/gemini), `GROK_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL` (gemini-1.5-flash)
 
 ```bash
 cd saga-be
