@@ -1,7 +1,6 @@
 package com.saga.auth.service;
 
 import com.saga.auth.dto.UserProfileDTO;
-import com.saga.auth.service.GoogleAuthService;
 import com.saga.shared.exception.UnauthorizedException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -14,7 +13,11 @@ import java.util.Map;
 @Component
 public class GoogleAuthService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
+
+    public GoogleAuthService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     public UserProfileDTO verifyToken(String token) {
         try {
@@ -23,7 +26,12 @@ public class GoogleAuthService {
             headers.setBearerAuth(token);
             HttpEntity<String> entity = new HttpEntity<>("", headers);
 
-            ResponseEntity<Map> response = restTemplate.exchange(userInfoUrl, HttpMethod.GET, entity, Map.class);
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    userInfoUrl,
+                    HttpMethod.GET,
+                    entity,
+                    new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {
+                    });
             Map<String, Object> payload = response.getBody();
 
             if (payload != null && payload.containsKey("email")) {

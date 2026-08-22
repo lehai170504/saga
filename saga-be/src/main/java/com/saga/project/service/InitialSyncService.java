@@ -18,9 +18,8 @@ import com.saga.project.repository.JpaCommitDataRepository;
 import com.saga.project.repository.JpaJiraBoardRepository;
 import com.saga.project.repository.JpaGitRepoRepository;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
-import java.util.Map;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,34 +76,32 @@ public class InitialSyncService {
                 String url = "https://api.atlassian.com/ex/jira/" + siteId + "/rest/api/3/search?jql=" + jql
                         + "&maxResults=100";
 
-                Map<String, Object> response = webClient.get()
+                JsonNode response = webClient.get()
                         .uri(url)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + board.getAccessToken())
                         .retrieve()
-                        .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {
-                        })
+                        .bodyToMono(JsonNode.class)
                         .block();
 
-                if (response != null && response.containsKey("issues")) {
-                    List<Map<String, Object>> issues = (List<Map<String, Object>>) response.get("issues");
-                    for (Map<String, Object> issue : issues) {
-                        Map<String, Object> fields = (Map<String, Object>) issue.get("fields");
+                if (response != null && response.hasNonNull("issues")) {
+                    JsonNode issues = response.get("issues");
+                    for (JsonNode issue : issues) {
+                        JsonNode fields = issue.get("fields");
 
-                        Task task = new Task();
+                        String issueKey = issue.get("key").asText();
+                        Task task = taskRepository.findByIssueKey(issueKey).orElseGet(Task::new);
                         task.setBoardId(board.getId());
-                        task.setIssueKey((String) issue.get("key"));
-                        task.setSummary(fields != null ? (String) fields.get("summary") : "No Summary");
+                        task.setIssueKey(issueKey);
+                        task.setSummary(fields != null && fields.hasNonNull("summary") ? fields.get("summary").asText()
+                                : "No Summary");
 
-                        // Try to get status
-                        if (fields != null && fields.containsKey("status")) {
-                            Map<String, Object> statusObj = (Map<String, Object>) fields.get("status");
-                            task.setStatus((String) statusObj.get("name"));
+                        if (fields != null && fields.hasNonNull("status")) {
+                            JsonNode statusObj = fields.get("status");
+                            task.setStatus(statusObj.get("name").asText());
                         }
 
-                        // Save task to Postgres
                         taskRepository.save(task);
 
-                        // Sync to Neo4j
                         JiraTaskNode taskNode = jiraTaskNodeRepository.findByIssueKey(task.getIssueKey())
                                 .orElse(new JiraTaskNode());
                         taskNode.setIssueKey(task.getIssueKey());
@@ -141,55 +138,49 @@ public class InitialSyncService {
 
         try {
             for (GitRepo repo : repos) {
-                // url is like https://github.com/owner/repo
                 String repoUrl = repo.getRepoUrl();
                 String path = repoUrl.replace("https://github.com/", "");
                 String apiUrl = "https://api.github.com/repos/" + path + "/commits?per_page=100";
 
                 WebClient.RequestHeadersSpec<?> requestSpec = webClient.get().uri(apiUrl);
 
-                // If it is a private repo or we have an installation ID, we should ideally use
-                // the Github App JWT.
-                // For simplicity, if accessToken is available (could be PAT), use it.
                 if (repo.getAccessToken() != null && !repo.getAccessToken().startsWith("GH-INST")) {
                     requestSpec.header(HttpHeaders.AUTHORIZATION, "Bearer " + repo.getAccessToken());
                 }
 
                 try {
-                    List<Map<String, Object>> commits = requestSpec
+                    JsonNode commits = requestSpec
                             .retrieve()
-                            .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
-                            })
+                            .bodyToMono(JsonNode.class)
                             .block();
 
-                    if (commits != null) {
-                        for (Map<String, Object> commitObj : commits) {
-                            String hash = (String) commitObj.get("sha");
-                            Map<String, Object> commitData = (Map<String, Object>) commitObj.get("commit");
-                            String message = (String) commitData.get("message");
-                            Map<String, Object> author = (Map<String, Object>) commitData.get("author");
-                            String authorEmail = (String) author.get("email");
+                    if (commits != null && commits.isArray()) {
+                        for (JsonNode commitObj : commits) {
+                            String hash = commitObj.get("sha").asText();
+                            if (commitDataRepository.findByHash(hash).isPresent()) {
+                                continue;
+                            }
+                            JsonNode commitData = commitObj.get("commit");
+                            String message = commitData.hasNonNull("message") ? commitData.get("message").asText()
+                                    : null;
+                            JsonNode author = commitData.get("author");
+                            String authorEmail = author.hasNonNull("email") ? author.get("email").asText() : null;
 
                             CommitData entity = new CommitData();
                             entity.setRepoId(repo.getId());
                             entity.setHash(hash);
                             entity.setMessage(message);
                             entity.setAuthorEmail(authorEmail);
-                            // Setting branch as master/main implicitly since it API returns default branch
-                            // commits
                             entity.setBranchName("main");
 
-                            // Save to Postgres
                             commitDataRepository.save(entity);
 
-                            // Sync to Neo4j
                             CommitNode commitNode = commitNodeRepository.findByHash(hash).orElse(new CommitNode());
                             commitNode.setHash(hash);
                             commitNode.setMessage(message);
                             commitNode.setTimestamp(java.time.LocalDateTime.now().toString());
                             commitNodeRepository.save(commitNode);
 
-                            // Data Linkage via Regex
                             if (message != null) {
                                 Matcher matcher = JIRA_KEY_PATTERN.matcher(message);
                                 while (matcher.find()) {
@@ -203,7 +194,6 @@ public class InitialSyncService {
                                         link.setCommitId(entity.getId());
                                         taskCommitLinkRepository.save(link);
 
-                                        // Sync relationship to Neo4j
                                         JiraTaskNode taskNode = jiraTaskNodeRepository.findByIssueKey(issueKey)
                                                 .orElse(null);
                                         if (taskNode != null) {

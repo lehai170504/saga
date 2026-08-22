@@ -1,5 +1,6 @@
 package com.saga.user.service;
 
+import com.saga.shared.exception.BadRequestException;
 import com.saga.user.repository.JpaUserRepository;
 import com.saga.user.entity.User;
 import com.saga.user.entity.UserStatus;
@@ -19,7 +20,7 @@ public class UserCommandService {
     @Transactional
     public void updateUserStatus(UUID userId, UserStatus status) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new BadRequestException("User not found"));
         user.setStatus(status);
         userRepository.save(user);
     }

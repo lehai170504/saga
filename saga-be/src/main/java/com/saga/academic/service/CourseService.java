@@ -40,7 +40,6 @@ public class CourseService {
 
     @Transactional
     public CourseResponse createCourse(CourseRequest request) {
-        // 1. Check if inputs exist
         if (!semesterRepository.existsById(request.getSemesterId()))
             throw new BadRequestException("Semester not found");
         if (!subjectRepository.existsById(request.getSubjectId()))
@@ -48,13 +47,11 @@ public class CourseService {
         if (!classRepository.existsById(request.getClassId()))
             throw new BadRequestException("Class not found");
 
-        // 2. Check for duplicate course combination
         if (courseRepository.existsBySemesterIdAndSubjectIdAndClassId(
                 request.getSemesterId(), request.getSubjectId(), request.getClassId())) {
             throw new BadRequestException("This Course combination (Semester, Subject, Class) already exists.");
         }
 
-        // 3. Create course
         Course course = new Course();
         course.setSemesterId(request.getSemesterId());
         course.setSubjectId(request.getSubjectId());

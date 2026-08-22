@@ -8,7 +8,9 @@ import com.saga.project.entity.JiraBoard;
 import com.saga.project.repository.JpaGitRepoRepository;
 import com.saga.project.repository.JpaJiraBoardRepository;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -46,10 +48,10 @@ public class ProjectIntegrationService {
     @Value("${app.github.client-secret:}")
     private String githubClientSecret;
 
-    // Redis keys
     private static final String JIRA_TOKEN_PREFIX = "jira_token:";
     private static final String GITHUB_INSTALL_PREFIX = "github_installation:";
     private final RedisTemplate<String, Object> redisTemplate;
+    private final ObjectMapper objectMapper;
 
     public ProjectIntegrationService(JpaJiraBoardRepository jiraBoardRepository,
             JpaGitRepoRepository gitRepoRepository,
@@ -57,15 +59,17 @@ public class ProjectIntegrationService {
             InitialSyncService initialSyncService,
             WebClient.Builder webClientBuilder,
             RedisTemplate<String, Object> redisTemplate,
-            GithubAppAuthService githubAppAuthService) {
+            GithubAppAuthService githubAppAuthService,
+            ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
         this.jiraBoardRepository = jiraBoardRepository;
         this.githubAppAuthService = githubAppAuthService;
         this.gitRepoRepository = gitRepoRepository;
         this.teamValidationPort = teamValidationPort;
         this.initialSyncService = initialSyncService;
         this.webClient = webClientBuilder.build();
-        
+
     }
 
     private void checkLeaderPermission(UUID userId, UUID teamId) {
@@ -73,10 +77,6 @@ public class ProjectIntegrationService {
             throw new AccessDeniedException("You do not have Leader permission for this team.");
         }
     }
-
-    // ==========================================
-    // JIRA INTEGRATION FLOW
-    // ==========================================
 
     public String generateJiraConnectUrl(UUID userId, UUID teamId) {
         checkLeaderPermission(userId, teamId);
@@ -90,7 +90,6 @@ public class ProjectIntegrationService {
         UUID teamId = UUID.fromString(state);
         checkLeaderPermission(userId, teamId);
 
-        // 1. Exchange Code for Access Token
         Map<String, String> body = Map.of(
                 "grant_type", "authorization_code",
                 "client_id", jiraClientId,
@@ -98,68 +97,80 @@ public class ProjectIntegrationService {
                 "code", code,
                 "redirect_uri", jiraRedirectUri);
 
-        Map tokenResponse = webClient.post()
+        JsonNode tokenResponse = webClient.post()
                 .uri("https://auth.atlassian.com/oauth/token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(body)
                 .retrieve()
-                .bodyToMono(Map.class)
+                .bodyToMono(JsonNode.class)
                 .block();
 
-        String accessToken = (String) tokenResponse.get("access_token");
-        String refreshToken = (String) tokenResponse.get("refresh_token");
+        String accessToken = tokenResponse.get("access_token").asText();
+        String refreshToken = tokenResponse.hasNonNull("refresh_token") ? tokenResponse.get("refresh_token").asText()
+                : null;
         Map<String, String> tokens = new HashMap<>();
         tokens.put("access_token", accessToken);
         if (refreshToken != null)
             tokens.put("refresh_token", refreshToken);
         redisTemplate.opsForValue().set(JIRA_TOKEN_PREFIX + teamId, tokens, 15, TimeUnit.MINUTES);
 
-        // 2. Get Accessible Resources (Sites)
-        List<Map<String, Object>> resources = webClient.get()
+        JsonNode resources = webClient.get()
                 .uri("https://api.atlassian.com/oauth/token/accessible-resources")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
-                })
+                .bodyToMono(JsonNode.class)
                 .block();
 
-        if (resources == null)
+        if (resources == null || !resources.isArray())
             return Collections.emptyList();
 
-        return resources.stream().map(res -> AvailableJiraSiteDTO.builder()
-                .id((String) res.get("id"))
-                .name((String) res.get("name"))
-                .url((String) res.get("url"))
-                .build()).collect(Collectors.toList());
+        List<AvailableJiraSiteDTO> dtos = new ArrayList<>();
+        for (JsonNode res : resources) {
+            dtos.add(AvailableJiraSiteDTO.builder()
+                    .id(res.get("id").asText())
+                    .name(res.get("name").asText())
+                    .url(res.get("url").asText())
+                    .build());
+        }
+        return dtos;
     }
 
     public List<AvailableJiraProjectDTO> getAvailableJiraProjects(UUID userId, UUID teamId, String siteId) {
-        checkLeaderPermission(userId, teamId);
-        Map<String, String> tokens = (Map<String, String>) redisTemplate.opsForValue().get(JIRA_TOKEN_PREFIX + teamId);
+        if (!teamValidationPort.isLeader(userId, teamId)) {
+            throw new AccessDeniedException("Only team leader can query Jira projects");
+        }
+
+        Object rawTokens = redisTemplate.opsForValue().get(JIRA_TOKEN_PREFIX + teamId);
+        Map<String, String> tokens = rawTokens != null
+                ? objectMapper.convertValue(rawTokens, new TypeReference<Map<String, String>>() {
+                })
+                : null;
         String accessToken = tokens != null ? tokens.get("access_token") : null;
         if (accessToken == null) {
             throw new IllegalStateException("No active Jira connection process found. Please reconnect.");
         }
 
-        // Fetch projects from Jira REST API for this specific site
         try {
-            List<Map<String, Object>> projects = webClient.get()
+            JsonNode projects = webClient.get()
                     .uri("https://api.atlassian.com/ex/jira/" + siteId + "/rest/api/3/project")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                     .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {
-                    })
+                    .bodyToMono(JsonNode.class)
                     .block();
 
-            if (projects == null)
+            if (projects == null || !projects.isArray())
                 return Collections.emptyList();
 
-            return projects.stream().map(p -> AvailableJiraProjectDTO.builder()
-                    .id((String) p.get("id"))
-                    .key((String) p.get("key"))
-                    .name((String) p.get("name"))
-                    .style((String) p.get("style"))
-                    .build()).collect(Collectors.toList());
+            List<AvailableJiraProjectDTO> dtos = new ArrayList<>();
+            for (JsonNode p : projects) {
+                dtos.add(AvailableJiraProjectDTO.builder()
+                        .id(p.get("id").asText())
+                        .key(p.get("key").asText())
+                        .name(p.get("name").asText())
+                        .style(p.hasNonNull("style") ? p.get("style").asText() : null)
+                        .build());
+            }
+            return dtos;
         } catch (Exception e) {
             return Collections.emptyList(); // Return empty if error (e.g. no permission)
         }
@@ -184,13 +195,16 @@ public class ProjectIntegrationService {
         entity.setStatus(IntegrationStatus.LINKED);
         entity.setLinkedAt(LocalDateTime.now());
 
-        Map<String, String> tokens = (Map<String, String>) redisTemplate.opsForValue().get(JIRA_TOKEN_PREFIX + teamId);
+        Object rawTokens = redisTemplate.opsForValue().get(JIRA_TOKEN_PREFIX + teamId);
+        Map<String, String> tokens = rawTokens != null
+                ? objectMapper.convertValue(rawTokens, new TypeReference<Map<String, String>>() {
+                })
+                : null;
         if (tokens != null) {
             entity.setAccessToken(tokens.get("access_token"));
             entity.setRefreshToken(tokens.get("refresh_token"));
         }
 
-        // Remove token from temp storage to free memory
         redisTemplate.delete(JIRA_TOKEN_PREFIX + teamId);
 
         initialSyncService.syncJiraTasks(teamId, entity.getSiteId(), entity.getProjectKey());
@@ -214,10 +228,6 @@ public class ProjectIntegrationService {
         });
     }
 
-    // ==========================================
-    // GITHUB INTEGRATION FLOW
-    // ==========================================
-
     public String generateGithubInstallUrl(UUID userId, UUID teamId) {
         checkLeaderPermission(userId, teamId);
         String state = teamId.toString();
@@ -232,26 +242,28 @@ public class ProjectIntegrationService {
         redisTemplate.opsForValue().set(GITHUB_INSTALL_PREFIX + teamId, installationId, 15, TimeUnit.MINUTES);
 
         try {
-            // Generate Installation Access Token using the private key and app ID
             String installationToken = githubAppAuthService.getInstallationAccessToken(installationId);
 
-            // Fetch repositories using WebClient
-            Map<String, Object> response = webClient.get()
+            JsonNode response = webClient.get()
                     .uri("https://api.github.com/installation/repositories")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + installationToken)
                     .header(HttpHeaders.ACCEPT, "application/vnd.github.v3+json")
                     .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
+                    .bodyToMono(JsonNode.class)
                     .block();
 
-            if (response != null && response.containsKey("repositories")) {
-                List<Map<String, Object>> reposNode = (List<Map<String, Object>>) response.get("repositories");
-                return reposNode.stream().map(node -> AvailableGithubRepoDTO.builder()
-                        .id(String.valueOf(node.get("id")))
-                        .fullName((String) node.get("full_name"))
-                        .url((String) node.get("html_url"))
-                        .isPrivate((Boolean) node.get("private"))
-                        .build()).collect(Collectors.toList());
+            if (response != null && response.hasNonNull("repositories")) {
+                JsonNode reposNode = response.get("repositories");
+                List<AvailableGithubRepoDTO> dtos = new ArrayList<>();
+                for (JsonNode node : reposNode) {
+                    dtos.add(AvailableGithubRepoDTO.builder()
+                            .id(node.get("id").asText())
+                            .fullName(node.get("full_name").asText())
+                            .url(node.get("html_url").asText())
+                            .isPrivate(node.get("private").asBoolean())
+                            .build());
+                }
+                return dtos;
             }
             return Collections.emptyList();
         } catch (Exception e) {
@@ -271,7 +283,6 @@ public class ProjectIntegrationService {
         List<GitRepo> savedRepos = new ArrayList<>();
 
         for (String url : request.getRepoUrls()) {
-            // Check if already linked
             Optional<GitRepo> existing = gitRepoRepository.findByRepoUrl(url);
             if (existing.isEmpty()) {
                 String repoName = url.substring(url.lastIndexOf("/") + 1);
@@ -281,12 +292,14 @@ public class ProjectIntegrationService {
                 entity.setRepoName(repoName);
                 entity.setRepoUrl(url);
                 entity.setAccessToken(installationId); // For now, store installation ID as token to be used to fetch
-                                                       // commits
                 entity.setStatus(IntegrationStatus.LINKED);
                 entity.setLinkedAt(LocalDateTime.now());
 
-                Map<String, String> tokens = (Map<String, String>) redisTemplate.opsForValue()
-                        .get(JIRA_TOKEN_PREFIX + teamId);
+                Object rawTokens = redisTemplate.opsForValue().get(JIRA_TOKEN_PREFIX + teamId);
+                Map<String, String> tokens = rawTokens != null
+                        ? objectMapper.convertValue(rawTokens, new TypeReference<Map<String, String>>() {
+                        })
+                        : null;
                 if (tokens != null) {
                     entity.setAccessToken(tokens.get("access_token"));
                     entity.setRefreshToken(tokens.get("refresh_token"));
@@ -322,5 +335,3 @@ public class ProjectIntegrationService {
         }
     }
 }
-
-

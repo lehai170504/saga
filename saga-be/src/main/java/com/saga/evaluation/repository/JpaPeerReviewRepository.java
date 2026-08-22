@@ -12,4 +12,7 @@ public interface JpaPeerReviewRepository extends JpaRepository<PeerReview, UUID>
     List<PeerReview> findBySprintId(String sprintId);
 
     List<PeerReview> findByRevieweeId(UUID revieweeId);
+
+    java.util.Optional<PeerReview> findBySprintIdAndReviewerIdAndRevieweeId(String sprintId, UUID reviewerId,
+            UUID revieweeId);
 }

@@ -1,6 +1,5 @@
 package com.saga.academic.service;
 
-import com.saga.academic.service.ProjectSecurityService;
 import com.saga.academic.repository.JpaTeamRepository;
 import com.saga.academic.repository.JpaCourseRepository;
 import com.saga.academic.repository.JpaTeamMemberRepository;

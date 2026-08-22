@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.mockito.MockitoAnnotations;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.security.access.AccessDeniedException;
@@ -63,7 +64,8 @@ class ProjectIntegrationServiceTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         projectIntegrationService = new ProjectIntegrationService(
-                jiraBoardRepository, gitRepoRepository, teamValidationPort, initialSyncService, webClientBuilder, redisTemplate, githubAppAuthService);
+                jiraBoardRepository, gitRepoRepository, teamValidationPort, initialSyncService, webClientBuilder,
+                redisTemplate, githubAppAuthService, new ObjectMapper());
         userId = UUID.randomUUID();
         teamId = UUID.randomUUID();
     }
@@ -97,7 +99,8 @@ class ProjectIntegrationServiceTest {
         mockBoard.setProjectKey("SAGA");
         when(jiraBoardRepository.save(any(JiraBoard.class))).thenReturn(mockBoard);
 
-        java.util.Map<String, String> tokens = new java.util.HashMap<>(); tokens.put("access_token", "token");
+        java.util.Map<String, String> tokens = new java.util.HashMap<>();
+        tokens.put("access_token", "token");
         when(valueOperations.get(anyString())).thenReturn(tokens);
         JiraBoard res = projectIntegrationService.confirmJiraProject(userId, teamId, req);
         assertNotNull(res);
@@ -159,13 +162,3 @@ class ProjectIntegrationServiceTest {
         verify(gitRepoRepository, times(1)).deleteAll(repos);
     }
 }
-
-
-
-
-
-
-
-
-
-

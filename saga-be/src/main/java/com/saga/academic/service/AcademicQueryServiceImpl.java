@@ -68,16 +68,11 @@ public class AcademicQueryServiceImpl implements AcademicQueryService {
 
     @Override
     public Page<UserResponseDTO> getCourseStudents(UUID courseId, UUID lecturerId, Pageable pageable, String search) {
-        // Validate IDOR
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new IllegalArgumentException("Course not found"));
         if (!course.getInstructorId().equals(lecturerId))
             throw new IllegalArgumentException("Forbidden");
 
-        // Simple implementation: this requires getting all teams -> team members ->
-        // users.
-        // Pagination here might be tricky if we don't do it at DB level, returning
-        // empty for now to stub.
         return new PageImpl<>(new ArrayList<>(), pageable, 0);
     }
 
@@ -116,16 +111,6 @@ public class AcademicQueryServiceImpl implements AcademicQueryService {
             if (member.isPresent()) {
                 List<UserResponseDTO> members = teamMemberRepository.findByTeamId(t.getId()).stream()
                         .map(tm -> userRepository.findByEmail(tm.getStudentId().toString()).orElse(null)) // Actually
-                                                                                                          // we need
-                                                                                                          // findById,
-                                                                                                          // but
-                                                                                                          // email
-                                                                                                          // is
-                                                                                                          // string.
-                                                                                                          // We need
-                                                                                                          // to
-                                                                                                          // implement
-                                                                                                          // findById.
                         .map(u -> UserResponseDTO.builder().build()) // Stub for now
                         .collect(Collectors.toList());
                 return TeamDetailDTO.builder().id(t.getId()).name(t.getName()).members(members).build();

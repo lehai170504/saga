@@ -1,6 +1,5 @@
 package com.saga.academic.service;
 
-import com.saga.academic.service.TeamValidationService;
 import com.saga.academic.repository.JpaTeamMemberRepository;
 import org.springframework.stereotype.Component;
 import java.util.UUID;

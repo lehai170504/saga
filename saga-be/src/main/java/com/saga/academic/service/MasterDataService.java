@@ -46,7 +46,6 @@ public class MasterDataService {
         if (courseRepository.countBySemesterId(semesterId) > 0) {
             throw new IllegalArgumentException("Cannot delete semester that contains courses");
         }
-        // Also remove from active semester if it is the active one
         activeSemesterRepository.findAll().stream()
                 .filter(setting -> setting.getSemesterId().equals(semesterId))
                 .forEach(activeSemesterRepository::delete);

@@ -10,5 +10,5 @@ import org.springframework.data.domain.Pageable;
 public interface JpaTeamMemberRepository extends JpaRepository<TeamMember, UUID>, JpaSpecificationExecutor<TeamMember> {
     List<TeamMember> findByTeamId(UUID teamId);
     List<TeamMember> findByStudentId(UUID studentId);
-    Page<TeamMember> findByTeamId(UUID teamId, Pageable pageable);    java.util.Optional<com.saga.academic.entity.TeamMember> findByTeamIdAndStudentId(UUID teamId, UUID studentId);
+    Page<TeamMember> findByTeamId(UUID teamId, Pageable pageable);    java.util.Optional<TeamMember> findByTeamIdAndStudentId(UUID teamId, UUID studentId);
 }

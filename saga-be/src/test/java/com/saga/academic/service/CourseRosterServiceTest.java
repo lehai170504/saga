@@ -6,6 +6,9 @@ import com.saga.academic.repository.JpaCourseRepository;
 import com.saga.academic.repository.JpaCourseStudentRepository;
 import com.saga.academic.repository.JpaTeamMemberRepository;
 import com.saga.academic.repository.JpaTeamRepository;
+import com.saga.user.repository.JpaStudentRepository;
+import com.saga.user.repository.JpaUserRepository;
+import com.saga.shared.service.EmailService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,6 +42,15 @@ class CourseRosterServiceTest {
 
     @Mock
     private JpaTeamMemberRepository teamMemberRepository;
+
+    @Mock
+    private JpaStudentRepository studentRepository;
+
+    @Mock
+    private JpaUserRepository userRepository;
+
+    @Mock
+    private EmailService emailService;
 
     @InjectMocks
     private CourseRosterService courseRosterService;
@@ -86,6 +98,3 @@ class CourseRosterServiceTest {
         assertNotNull(template);
     }
 }
-
-
-

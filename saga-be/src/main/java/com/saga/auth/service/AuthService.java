@@ -85,7 +85,6 @@ public class AuthService implements LoginUseCase {
                         .build();
                 lecturerRepository.save(lecturer);
             } else if (email.endsWith("@fpt.edu.vn") || email.endsWith("@gmail.com")) { // Allowing @gmail.com for
-                                                                                        // student test accounts as well
                 user.setRole(Role.STUDENT);
                 user = userRepository.save(user);
 

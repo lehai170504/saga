@@ -11,6 +11,8 @@ import com.saga.evaluation.repository.JpaTaskWeightConfigRepository;
 import com.saga.evaluation.service.EvaluationConfigService;
 import com.saga.evaluation.service.EvaluationReportService;
 import com.saga.project.entity.Task;
+import com.saga.project.repository.JpaTaskRepository;
+import com.saga.academic.repository.JpaTeamMemberRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -41,7 +43,10 @@ public class EvaluationModuleTest {
         private JpaContributionOverrideRepository overrideRepository;
 
         @Mock
-        private com.saga.project.repository.JpaTaskRepository taskRepository;
+        private JpaTaskRepository taskRepository;
+
+        @Mock
+        private JpaTeamMemberRepository teamMemberRepository;
 
         @InjectMocks
         private EvaluationConfigService evaluationConfigService;
@@ -98,6 +103,7 @@ public class EvaluationModuleTest {
                                 .thenReturn(Optional.of(override));
 
                 when(taskRepository.findBySprintIdAndStatus(sprintId, "DONE")).thenReturn(List.of(taskA));
+                when(teamMemberRepository.findByTeamId(any())).thenReturn(Collections.emptyList());
 
                 SprintReportDTO report = evaluationReportService.getSprintReport(UUID.randomUUID(), UUID.randomUUID(),
                                 sprintId);

@@ -30,7 +30,6 @@ public class EmailService {
             javaMailSender.send(message);
         } catch (Exception e) {
             System.err.println("Failed to send email to " + toEmail + ". Error: " + e.getMessage());
-            // Log the error but don't crash the import process
         }
     }
 }

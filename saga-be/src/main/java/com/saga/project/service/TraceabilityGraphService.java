@@ -29,10 +29,6 @@ public class TraceabilityGraphService {
     }
 
     public GraphDataDTO getGraphData(UUID teamId, String sprintId) {
-        // For simplicity in this implementation, we fetch all students and their
-        // relationships.
-        // In a production environment, we should use a custom @Query to filter by
-        // teamId/sprintId.
         List<StudentNode> students = studentRepo.findAll();
         List<JiraTaskNode> tasks = taskRepo.findAll();
         List<CommitNode> commits = commitRepo.findAll();
@@ -41,7 +37,6 @@ public class TraceabilityGraphService {
         List<EdgeDTO> edges = new ArrayList<>();
         Set<String> addedNodes = new HashSet<>();
 
-        // Add Student Nodes
         for (StudentNode student : students) {
             String nodeId = "student_" + student.getId();
             if (addedNodes.add(nodeId)) {
@@ -52,7 +47,6 @@ public class TraceabilityGraphService {
                         .build());
             }
 
-            // Edges: Student -> Commit
             for (CommitNode commit : student.getAuthoredCommits()) {
                 edges.add(EdgeDTO.builder()
                         .source(nodeId)
@@ -61,7 +55,6 @@ public class TraceabilityGraphService {
                         .build());
             }
 
-            // Edges: Student -> Task
             for (JiraTaskNode task : student.getAssignedTasks()) {
                 edges.add(EdgeDTO.builder()
                         .source(nodeId)
@@ -71,7 +64,6 @@ public class TraceabilityGraphService {
             }
         }
 
-        // Add Task Nodes
         for (JiraTaskNode task : tasks) {
             String nodeId = "task_" + task.getId();
             if (addedNodes.add(nodeId)) {
@@ -83,7 +75,6 @@ public class TraceabilityGraphService {
             }
         }
 
-        // Add Commit Nodes
         for (CommitNode commit : commits) {
             String nodeId = "commit_" + commit.getId();
             if (addedNodes.add(nodeId)) {
@@ -94,7 +85,6 @@ public class TraceabilityGraphService {
                         .build());
             }
 
-            // Edges: Commit -> Task
             for (JiraTaskNode task : commit.getImplementsTasks()) {
                 edges.add(EdgeDTO.builder()
                         .source(nodeId)
@@ -108,7 +98,6 @@ public class TraceabilityGraphService {
     }
 
     public TeamStatsDTO getTeamStats(UUID teamId, String sprintId) {
-        // Simplified statistics calculation
         long totalStudents = studentRepo.count();
         long totalTasks = taskRepo.count();
         long totalCommits = commitRepo.count();

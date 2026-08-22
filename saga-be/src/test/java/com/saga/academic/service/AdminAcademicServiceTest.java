@@ -37,7 +37,6 @@ public class AdminAcademicServiceTest {
 
     @Test
     public void createSubject_HappyPath_ReturnsSubjectResponse() {
-        // Arrange
         SubjectRequest request = new SubjectRequest();
         request.setSubjectCode("SWE301");
         request.setSubjectName("Software Engineering");
@@ -52,10 +51,8 @@ public class AdminAcademicServiceTest {
         when(subjectRepository.existsBySubjectCode("SWE301")).thenReturn(false);
         when(subjectRepository.save(any(Subject.class))).thenReturn(savedSubject);
 
-        // Act
         SubjectResponse response = adminAcademicService.createSubject(request);
 
-        // Assert
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(generatedId);
         assertThat(response.getSubjectCode()).isEqualTo("SWE301");
@@ -67,14 +64,12 @@ public class AdminAcademicServiceTest {
 
     @Test
     public void createSubject_DuplicateCode_ThrowsBadRequestException() {
-        // Arrange
         SubjectRequest request = new SubjectRequest();
         request.setSubjectCode("SWE301");
         request.setSubjectName("Software Engineering");
 
         when(subjectRepository.existsBySubjectCode("SWE301")).thenReturn(true);
 
-        // Act & Assert
         BadRequestException exception = assertThrows(BadRequestException.class,
                 () -> adminAcademicService.createSubject(request));
 

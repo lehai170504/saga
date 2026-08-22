@@ -28,6 +28,10 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import java.util.Optional;
+import com.saga.academic.repository.JpaClassRepository;
+import com.saga.academic.entity.Class;
+import com.saga.user.repository.JpaStudentRepository;
+import com.saga.user.entity.Student;
 
 @Service
 public class CourseRosterService {
@@ -37,19 +41,24 @@ public class CourseRosterService {
     private final JpaTeamMemberRepository teamMemberRepository;
     private final JpaCourseStudentRepository courseStudentRepository;
     private final JpaUserRepository userRepository;
+    private final JpaStudentRepository studentRepository;
     private final EmailService emailService;
+    private final JpaClassRepository classRepository;
 
     public CourseRosterService(JpaCourseRepository courseRepository,
             JpaActiveSemesterRepository activeSemesterRepository, JpaTeamRepository teamRepository,
             JpaTeamMemberRepository teamMemberRepository, JpaCourseStudentRepository courseStudentRepository,
-            JpaUserRepository userRepository, EmailService emailService) {
+            JpaUserRepository userRepository, JpaStudentRepository studentRepository,
+            EmailService emailService, JpaClassRepository classRepository) {
         this.courseRepository = courseRepository;
         this.activeSemesterRepository = activeSemesterRepository;
         this.teamRepository = teamRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.courseStudentRepository = courseStudentRepository;
         this.userRepository = userRepository;
+        this.studentRepository = studentRepository;
         this.emailService = emailService;
+        this.classRepository = classRepository;
     }
 
     private Course getCourse(UUID courseId) {
@@ -71,10 +80,6 @@ public class CourseRosterService {
             throw new IllegalArgumentException("This course does not belong to the active semester");
         }
     }
-
-    // ==========================================
-    // ADMIN: ROSTER MANAGEMENT
-    // ==========================================
 
     public byte[] downloadRosterTemplate(UUID courseId) {
         getCourse(courseId); // validate exists
@@ -108,10 +113,8 @@ public class CourseRosterService {
                 if (email.isEmpty())
                     continue;
 
-                // Create user if not exists
                 Optional<User> existingUser = userRepository.findByEmail(email);
                 User user;
-                boolean isNewUser = false;
                 if (existingUser.isEmpty()) {
                     user = User.builder()
                             .id(UUID.randomUUID())
@@ -121,12 +124,17 @@ public class CourseRosterService {
                             .status(UserStatus.PENDING)
                             .build();
                     user = userRepository.save(user);
-                    isNewUser = true;
+
+                    Student newStudent = Student.builder()
+                            .id(UUID.randomUUID())
+                            .userId(user.getId())
+                            .studentCode(email.split("@")[0].toUpperCase())
+                            .build();
+                    studentRepository.save(newStudent);
                 } else {
                     user = existingUser.get();
                 }
 
-                // Add to course_students
                 Optional<CourseStudent> existingCourseStudent = courseStudentRepository
                         .findByCourseIdAndStudentId(courseId, user.getId());
                 if (existingCourseStudent.isEmpty()) {
@@ -135,8 +143,10 @@ public class CourseRosterService {
                     cse.setStudentId(user.getId());
                     courseStudentRepository.save(cse);
 
-                    // Send Email
-                    emailService.sendCourseEnrollmentEmail(email, course.getId().toString());
+                    String classCode = classRepository.findById(course.getClassId())
+                            .map(Class::getClassCode)
+                            .orElse(course.getId().toString());
+                    emailService.sendCourseEnrollmentEmail(email, classCode);
                 }
             }
         } catch (Exception e) {
@@ -144,12 +154,8 @@ public class CourseRosterService {
         }
     }
 
-    // ==========================================
-    // LECTURER: TEAM GROUPING
-    // ==========================================
-
     public byte[] downloadGroupingTemplate(UUID courseId, UUID lecturerId) {
-        Course course = getCourseAndAuthorize(courseId, lecturerId);
+        getCourseAndAuthorize(courseId, lecturerId);
 
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Team Grouping");
@@ -159,7 +165,6 @@ public class CourseRosterService {
             headerRow.createCell(2).setCellValue("Team Name");
             headerRow.createCell(3).setCellValue("Is Leader (TRUE/FALSE)");
 
-            // Pre-fill with enrolled students
             List<CourseStudent> courseStudents = courseStudentRepository.findAll().stream()
                     .filter(cs -> cs.getCourseId().equals(courseId)).toList();
             int rowIndex = 1;
@@ -210,12 +215,15 @@ public class CourseRosterService {
                     return teamRepository.save(newTeam);
                 });
 
-                // Check if already in a team
-                TeamMember member = new TeamMember();
-                member.setTeamId(team.getId());
-                member.setStudentId(student.getId());
-                member.setIsLeader(isLeader);
-                teamMemberRepository.save(member);
+                Optional<TeamMember> existingMember = teamMemberRepository.findByTeamIdAndStudentId(team.getId(),
+                        student.getId());
+                if (existingMember.isEmpty()) {
+                    TeamMember member = new TeamMember();
+                    member.setTeamId(team.getId());
+                    member.setStudentId(student.getId());
+                    member.setIsLeader(isLeader);
+                    teamMemberRepository.save(member);
+                }
             }
         } catch (Exception e) {
             throw new RuntimeException("Error processing file", e);

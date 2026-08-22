@@ -1,6 +1,5 @@
 package com.saga.auth.service;
 
-import com.saga.auth.service.JwtProviderService;
 import com.saga.user.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

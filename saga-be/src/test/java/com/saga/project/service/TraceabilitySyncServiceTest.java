@@ -8,6 +8,8 @@ import com.saga.project.repository.JpaCommitDataRepository;
 import com.saga.project.repository.JpaGitRepoRepository;
 import com.saga.project.repository.JpaTaskCommitLinkRepository;
 import com.saga.project.repository.JpaTaskRepository;
+import com.saga.project.graph.CommitNodeRepository;
+import com.saga.project.graph.JiraTaskNodeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -33,10 +35,10 @@ class TraceabilitySyncServiceTest {
     private JpaTaskRepository taskRepository;
 
     @Mock
-    private com.saga.project.graph.CommitNodeRepository commitNodeRepository;
+    private CommitNodeRepository commitNodeRepository;
 
     @Mock
-    private com.saga.project.graph.JiraTaskNodeRepository jiraTaskNodeRepository;
+    private JiraTaskNodeRepository jiraTaskNodeRepository;
 
     @Mock
     private JpaTaskCommitLinkRepository taskCommitLinkRepository;
@@ -51,7 +53,6 @@ class TraceabilitySyncServiceTest {
 
     @Test
     void handleGithubWebhook_ValidPayload_ShouldLinkCommitToTask() {
-        // Mock Payload
         GithubWebhookPayload payload = new GithubWebhookPayload();
         payload.setRef("refs/heads/main");
 
@@ -67,34 +68,25 @@ class TraceabilitySyncServiceTest {
         commit.setAuthor(author);
         payload.setCommits(Collections.singletonList(commit));
 
-        // Mock GitRepo lookup
         GitRepo gitRepoEntity = new GitRepo();
         gitRepoEntity.setId(UUID.randomUUID());
         when(gitRepoRepository.findByRepoId("ext-repo-123")).thenReturn(Optional.of(gitRepoEntity));
 
-        // Mock Commit verification (not exists)
         when(commitDataRepository.findByHash("hash123")).thenReturn(Optional.empty());
 
-        // Mock Commit save
         CommitData savedCommit = new CommitData();
         savedCommit.setId(UUID.randomUUID());
         when(commitDataRepository.save(any(CommitData.class))).thenReturn(savedCommit);
 
-        // Mock Task lookup
         Task task = new Task();
         task.setId(UUID.randomUUID());
         task.setIssueKey("SAGA-45");
         when(taskRepository.findByIssueKey("SAGA-45")).thenReturn(Optional.of(task));
 
-        // Execute
         traceabilitySyncService.handleGithubWebhook(payload);
 
-        // Verify
         verify(commitDataRepository, times(1)).save(any(CommitData.class));
         verify(taskRepository, times(1)).findByIssueKey("SAGA-45");
         verify(taskCommitLinkRepository, times(1)).save(any());
     }
 }
-
-
-

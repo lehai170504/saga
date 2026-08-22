@@ -14,7 +14,6 @@ public class SearchSpecification {
             String searchPattern = "%" + keyword.toLowerCase() + "%";
             List<Predicate> predicates = new ArrayList<>();
             for (String field : fields) {
-                // Handle nested fields like "user.name"
                 if (field.contains(".")) {
                     String[] parts = field.split("\\.");
                     jakarta.persistence.criteria.Path<String> path = root.get(parts[0]);

@@ -99,7 +99,6 @@ public class TraceabilitySyncService {
             }
             taskRepository.save(task);
 
-            // Sync to Neo4j
             JiraTaskNode taskNode = jiraTaskNodeRepository.findByIssueKey(payload.getIssue().getKey())
                     .orElse(new JiraTaskNode());
             taskNode.setIssueKey(task.getIssueKey());
@@ -133,12 +132,10 @@ public class TraceabilitySyncService {
             }
 
             for (GithubWebhookPayload.Commit commit : payload.getCommits()) {
-                // Avoid duplicate commits
                 if (commitDataRepository.findByHash(commit.getId()).isPresent()) {
                     continue;
                 }
 
-                // Save Commit
                 CommitData commitEntity = new CommitData();
                 commitEntity.setRepoId(repo.getId());
                 commitEntity.setHash(commit.getId());
@@ -149,14 +146,12 @@ public class TraceabilitySyncService {
                 }
                 commitEntity = commitDataRepository.save(commitEntity);
 
-                // Sync to Neo4j
                 CommitNode commitNode = commitNodeRepository.findByHash(commit.getId()).orElse(new CommitNode());
                 commitNode.setHash(commit.getId());
                 commitNode.setMessage(commit.getMessage());
                 commitNode.setTimestamp(java.time.LocalDateTime.now().toString());
                 commitNodeRepository.save(commitNode);
 
-                // Data Linkage via Regex
                 if (commit.getMessage() != null) {
                     Matcher matcher = JIRA_KEY_PATTERN.matcher(commit.getMessage());
                     while (matcher.find()) {
@@ -185,7 +180,6 @@ public class TraceabilitySyncService {
                         link.setCommitId(commitEntity.getId());
                         taskCommitLinkRepository.save(link);
 
-                        // Sync relationship to Neo4j
                         JiraTaskNode taskNode = jiraTaskNodeRepository.findByIssueKey(issueKey).orElse(null);
                         if (taskNode == null) {
                             taskNode = new JiraTaskNode();

@@ -17,13 +17,10 @@ public class StudentContributionDTO {
     private Double retrospectiveCoefficient;
     private Double pieScore;
 
-    // The calculated Slicing Pie percentage
     private Double calculatedPercentage;
 
-    // Overridden values if applicable
     private Double overriddenPercentage;
     private String overrideReason;
 
-    // The final applied percentage
     private Double finalPercentage;
 }

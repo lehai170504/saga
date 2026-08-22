@@ -59,7 +59,6 @@ public class AuthServiceTest {
 
     @Test
     void loginWithGoogle_Student_Success_WhenUserDoesNotExist() {
-        // Arrange
         mockProfile = UserProfileDTO.builder()
                 .email("student_se123456@fpt.edu.vn")
                 .name("Student")
@@ -76,10 +75,8 @@ public class AuthServiceTest {
 
         when(jwtProviderPort.generateToken(any(User.class))).thenReturn("mock_local_jwt");
 
-        // Act
         AuthResponse response = authService.loginWithGoogle(request);
 
-        // Assert
         assertNotNull(response);
         assertEquals("mock_local_jwt", response.getAccessToken());
         assertEquals("STUDENT", response.getRole());
@@ -92,7 +89,6 @@ public class AuthServiceTest {
 
     @Test
     void loginWithGoogle_ThrowsUnauthorized_WhenInvalidDomain() {
-        // Arrange
         mockProfile = UserProfileDTO.builder()
                 .email("hacker@yahoo.com")
                 .name("Hacker")
@@ -102,7 +98,6 @@ public class AuthServiceTest {
         when(googleAuthPort.verifyToken(request.getIdToken())).thenReturn(mockProfile);
         when(userRepository.findByEmail("hacker@yahoo.com")).thenReturn(Optional.empty());
 
-        // Act & Assert
         UnauthorizedException exception = assertThrows(UnauthorizedException.class, () -> {
             authService.loginWithGoogle(request);
         });
