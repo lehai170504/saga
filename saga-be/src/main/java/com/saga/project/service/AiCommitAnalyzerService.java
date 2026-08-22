@@ -25,18 +25,21 @@ public class AiCommitAnalyzerService {
     private final AiReviewProvider aiReviewProvider;
     private final NotificationService notificationService;
     private final WebClient webClient;
+    private final GithubAppAuthService githubAppAuthService;
 
     public AiCommitAnalyzerService(JpaGitRepoRepository gitRepoRepository,
             JpaTaskRepository taskRepository,
             Map<String, AiReviewProvider> reviewProviders,
             @org.springframework.beans.factory.annotation.Value("${app.ai.provider:grok}") String providerName,
             NotificationService notificationService,
-            WebClient.Builder webClientBuilder) {
+            WebClient.Builder webClientBuilder,
+            GithubAppAuthService githubAppAuthService) {
         this.gitRepoRepository = gitRepoRepository;
         this.taskRepository = taskRepository;
         this.aiReviewProvider = reviewProviders.getOrDefault(providerName, reviewProviders.get("grok"));
         this.notificationService = notificationService;
         this.webClient = webClientBuilder.build();
+        this.githubAppAuthService = githubAppAuthService;
     }
 
     private static final Pattern JIRA_KEY_PATTERN = Pattern.compile("([A-Z]+-[0-9]+)");
@@ -102,13 +105,10 @@ public class AiCommitAnalyzerService {
                     .uri(apiUrl)
                     .header(HttpHeaders.ACCEPT, "application/vnd.github.v3.diff");
 
-            // For Github Apps, the access token is often the installation token
-            if (repo.getAccessToken() != null && repo.getAccessToken().startsWith("GH-INST")) {
-                // Not ideal, we should re-fetch token, but for now MVP logic assumes token or
-                // public repo
-                // If it's a public repo, diff can be fetched without auth
-                // To fetch auth, we'd use
-                // GithubAppAuthService.getInstallationAccessToken(repo.getAccessToken())
+            if (repo.getAccessToken() != null && repo.getAccessToken().startsWith("GH-INST-")) {
+                String installationId = repo.getAccessToken().replace("GH-INST-", "");
+                String installationToken = githubAppAuthService.getInstallationAccessToken(installationId);
+                requestSpec.header(HttpHeaders.AUTHORIZATION, "Bearer " + installationToken);
             }
 
             return requestSpec.retrieve()

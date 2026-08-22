@@ -3,9 +3,7 @@ package com.saga.academic.service;
 import com.saga.academic.dto.CreateCourseRequest;
 import com.saga.academic.dto.CreateSemesterRequest;
 import com.saga.academic.entity.Semester;
-import com.saga.academic.entity.ActiveSemesterSetting;
 import com.saga.academic.entity.Course;
-import com.saga.academic.repository.JpaActiveSemesterRepository;
 import com.saga.academic.repository.JpaCourseRepository;
 import com.saga.academic.repository.JpaSemesterRepository;
 import org.junit.jupiter.api.Test;
@@ -30,9 +28,6 @@ class MasterDataServiceTest {
 
     @Mock
     private JpaCourseRepository courseRepository;
-
-    @Mock
-    private JpaActiveSemesterRepository activeSemesterRepository;
 
     @InjectMocks
     private MasterDataService masterDataService;
@@ -74,17 +69,6 @@ class MasterDataServiceTest {
         when(courseRepository.countBySemesterId(semesterId)).thenReturn(1L);
 
         assertThrows(IllegalArgumentException.class, () -> masterDataService.deleteSemester(semesterId));
-    }
-
-    @Test
-    void setActiveSemester_Success() {
-        UUID semesterId = UUID.randomUUID();
-        when(semesterRepository.existsById(semesterId)).thenReturn(true);
-
-        masterDataService.setActiveSemester(semesterId);
-
-        verify(activeSemesterRepository).deleteAll();
-        verify(activeSemesterRepository).save(any(ActiveSemesterSetting.class));
     }
 
     @Test

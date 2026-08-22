@@ -48,7 +48,9 @@ public class AcademicQueryServiceImpl implements AcademicQueryService {
         return semesterRepository.findAll(pageable).map(s -> SemesterDTO.builder()
                 .id(s.getId()).code(s.getCode()).name(s.getName())
                 .startDate(s.getStartDate()).endDate(s.getEndDate())
-                .isActive(false) // Needs logic to check active semester
+                .isActive(s.getStartDate() != null && s.getEndDate() != null &&
+                        !java.time.LocalDate.now().isBefore(s.getStartDate()) &&
+                        !java.time.LocalDate.now().isAfter(s.getEndDate()))
                 .build());
     }
 

@@ -1,7 +1,7 @@
 package com.saga.academic.service;
 
 import com.saga.academic.entity.Course;
-import com.saga.academic.repository.JpaActiveSemesterRepository;
+import com.saga.academic.repository.JpaSemesterRepository;
 import com.saga.academic.repository.JpaCourseRepository;
 import com.saga.academic.repository.JpaCourseStudentRepository;
 import com.saga.academic.repository.JpaTeamMemberRepository;
@@ -35,7 +35,7 @@ class CourseRosterServiceTest {
     private JpaCourseStudentRepository courseStudentRepository;
 
     @Mock
-    private JpaActiveSemesterRepository activeSemesterRepository;
+    private JpaSemesterRepository semesterRepository;
 
     @Mock
     private JpaTeamRepository teamRepository;

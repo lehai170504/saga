@@ -1,12 +1,11 @@
 package com.saga.academic.service;
 
-import com.saga.academic.entity.ActiveSemesterSetting;
 import com.saga.academic.entity.Course;
 import com.saga.academic.entity.Team;
 import com.saga.academic.entity.TeamMember;
 import com.saga.academic.entity.CourseStudent;
-import com.saga.academic.repository.JpaActiveSemesterRepository;
 import com.saga.academic.repository.JpaCourseRepository;
+import com.saga.academic.repository.JpaSemesterRepository;
 import com.saga.academic.repository.JpaTeamMemberRepository;
 import com.saga.academic.repository.JpaTeamRepository;
 import com.saga.academic.repository.JpaCourseStudentRepository;
@@ -36,7 +35,7 @@ import com.saga.user.entity.Student;
 @Service
 public class CourseRosterService {
     private final JpaCourseRepository courseRepository;
-    private final JpaActiveSemesterRepository activeSemesterRepository;
+    private final JpaSemesterRepository semesterRepository;
     private final JpaTeamRepository teamRepository;
     private final JpaTeamMemberRepository teamMemberRepository;
     private final JpaCourseStudentRepository courseStudentRepository;
@@ -46,12 +45,12 @@ public class CourseRosterService {
     private final JpaClassRepository classRepository;
 
     public CourseRosterService(JpaCourseRepository courseRepository,
-            JpaActiveSemesterRepository activeSemesterRepository, JpaTeamRepository teamRepository,
+            JpaSemesterRepository semesterRepository, JpaTeamRepository teamRepository,
             JpaTeamMemberRepository teamMemberRepository, JpaCourseStudentRepository courseStudentRepository,
             JpaUserRepository userRepository, JpaStudentRepository studentRepository,
             EmailService emailService, JpaClassRepository classRepository) {
         this.courseRepository = courseRepository;
-        this.activeSemesterRepository = activeSemesterRepository;
+        this.semesterRepository = semesterRepository;
         this.teamRepository = teamRepository;
         this.teamMemberRepository = teamMemberRepository;
         this.courseStudentRepository = courseStudentRepository;
@@ -75,9 +74,14 @@ public class CourseRosterService {
     }
 
     private void validateActiveSemester(Course course) {
-        List<ActiveSemesterSetting> settings = activeSemesterRepository.findAll();
-        if (settings.isEmpty() || !settings.get(0).getSemesterId().equals(course.getSemesterId())) {
-            throw new IllegalArgumentException("This course does not belong to the active semester");
+        com.saga.academic.entity.Semester semester = semesterRepository.findById(course.getSemesterId())
+                .orElseThrow(() -> new IllegalArgumentException("Semester not found"));
+        if (semester.getStartDate() == null || semester.getEndDate() == null) {
+            throw new IllegalArgumentException("Semester dates are not set");
+        }
+        java.time.LocalDate now = java.time.LocalDate.now();
+        if (now.isBefore(semester.getStartDate()) || now.isAfter(semester.getEndDate())) {
+            throw new IllegalArgumentException("This course does not belong to an active semester");
         }
     }
 
