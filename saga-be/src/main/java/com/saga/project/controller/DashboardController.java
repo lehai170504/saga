@@ -21,7 +21,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
-@Tag(name = "10. Dashboards", description = "Role-based Dashboards (SG-6)")
+@Tag(name = "12. Dashboards", description = "Role-based Dashboards (SG-6)")
 public class DashboardController {
 
     private final DashboardService dashboardService;

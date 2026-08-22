@@ -19,7 +19,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/admin/audit-logs")
 @RequiredArgsConstructor
-@Tag(name = "Admin Audit Logs", description = "Endpoints for administrators to view system audit logs")
+@Tag(name = "13. Admin - Audit Logs", description = "Endpoints for administrators to view system audit logs")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminAuditLogController {
 

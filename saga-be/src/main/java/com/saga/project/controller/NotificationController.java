@@ -20,7 +20,7 @@ import com.saga.user.repository.JpaUserRepository;
 @RestController
 @RequestMapping("/api/v1/notifications")
 @RequiredArgsConstructor
-@Tag(name = "Notifications", description = "Endpoints for managing user notifications")
+@Tag(name = "14. Notifications", description = "Endpoints for managing user notifications")
 public class NotificationController {
 
     private final NotificationService notificationService;
