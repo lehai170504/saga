@@ -37,6 +37,7 @@ public class TraceabilitySyncService {
     private final JiraTaskNodeRepository jiraTaskNodeRepository;
     private final CommitNodeRepository commitNodeRepository;
     private final JpaJiraBoardRepository jiraBoardRepository;
+    private final AiCommitAnalyzerService aiCommitAnalyzerService;
 
     private static final Pattern JIRA_KEY_PATTERN = Pattern.compile("([A-Z]+-[0-9]+)");
 
@@ -46,7 +47,8 @@ public class TraceabilitySyncService {
             JpaTaskCommitLinkRepository taskCommitLinkRepository,
             JiraTaskNodeRepository jiraTaskNodeRepository,
             CommitNodeRepository commitNodeRepository,
-            JpaJiraBoardRepository jiraBoardRepository) {
+            JpaJiraBoardRepository jiraBoardRepository,
+            AiCommitAnalyzerService aiCommitAnalyzerService) {
         this.gitRepoRepository = gitRepoRepository;
         this.commitDataRepository = commitDataRepository;
         this.taskRepository = taskRepository;
@@ -54,6 +56,7 @@ public class TraceabilitySyncService {
         this.jiraTaskNodeRepository = jiraTaskNodeRepository;
         this.commitNodeRepository = commitNodeRepository;
         this.jiraBoardRepository = jiraBoardRepository;
+        this.aiCommitAnalyzerService = aiCommitAnalyzerService;
     }
 
     @Async
@@ -145,6 +148,9 @@ public class TraceabilitySyncService {
                     commitEntity.setAuthorEmail(commit.getAuthor().getEmail());
                 }
                 commitEntity = commitDataRepository.save(commitEntity);
+
+                // Trigger AI Code Analyzer
+                aiCommitAnalyzerService.analyzeCommit(externalRepoId, commit.getId(), commit.getMessage(), commitEntity.getAuthorEmail());
 
                 CommitNode commitNode = commitNodeRepository.findByHash(commit.getId()).orElse(new CommitNode());
                 commitNode.setHash(commit.getId());
