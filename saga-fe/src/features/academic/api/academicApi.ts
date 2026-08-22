@@ -9,6 +9,8 @@ import {
   CreateSemesterPayload,
   CreateSubjectPayload,
   CreateClassPayload,
+  CreateCoursePayload,
+  AddStudentToCoursePayload,
 } from "../types";
 
 export const academicApi = {
@@ -86,6 +88,73 @@ export const academicApi = {
 
   deleteClass: async (id: string) => {
     const { data } = await axiosClient.delete<ApiResponse<void>>(`/admin/academic/classes/${id}`);
+    return data.data;
+  },
+
+  getCourses: async (page = 0, size = 10, search?: string) => {
+    const queryParams = new URLSearchParams();
+    queryParams.append("page", page.toString());
+    queryParams.append("size", size.toString());
+    if (search && search.trim()) {
+      queryParams.append("search", search.trim());
+    }
+
+    const { data } = await axiosClient.get<ApiResponse<PageResponse<Course>>>(
+      `/admin/academic/courses?${queryParams.toString()}`
+    );
+    return data.data;
+  },
+
+  createCourse: async (payload: CreateCoursePayload) => {
+    const { data } = await axiosClient.post<ApiResponse<Course>>("/admin/academic/courses", payload);
+    return data.data;
+  },
+
+  downloadRosterTemplate: async (courseId: string) => {
+    const response = await axiosClient.get(
+      `/admin/academic/courses/${courseId}/roster-template`,
+      {
+        responseType: "blob",
+      }
+    );
+
+    const contentType =
+      typeof response.headers["content-type"] === "string"
+        ? response.headers["content-type"]
+        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    const blob = new Blob([response.data], { type: contentType });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Student_Roster_Template_${courseId}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  addStudentToCourse: async (courseId: string, payload: AddStudentToCoursePayload) => {
+    const { data } = await axiosClient.post<ApiResponse<void>>(
+      `/admin/academic/courses/${courseId}/students`,
+      payload
+    );
+    return data.data;
+  },
+
+  importRoster: async (courseId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const { data } = await axiosClient.post<ApiResponse<void>>(
+      `/admin/academic/courses/${courseId}/import-roster`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
     return data.data;
   },
 };

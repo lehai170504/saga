@@ -26,6 +26,13 @@ export const useAdminLecturers = (params: UserQueryParams, options?: { enabled?:
   });
 };
 
+export const useAllLecturers = () => {
+  return useQuery({
+    queryKey: ["all-lecturers"],
+    queryFn: () => userAdminApi.getAllLecturers(),
+  });
+};
+
 export const useUpdateUserStatus = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -35,6 +42,7 @@ export const useUpdateUserStatus = () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       queryClient.invalidateQueries({ queryKey: ["admin-students"] });
       queryClient.invalidateQueries({ queryKey: ["admin-lecturers"] });
+      queryClient.invalidateQueries({ queryKey: ["all-lecturers"] });
     },
   });
 };

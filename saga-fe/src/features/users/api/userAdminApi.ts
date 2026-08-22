@@ -42,6 +42,13 @@ export const userAdminApi = {
     return data.data;
   },
 
+  getAllLecturers: async () => {
+    const { data } = await axiosClient.get<ApiResponse<UserItem[]>>(
+      "/admin/users/lecturers/all"
+    );
+    return data.data;
+  },
+
   updateUserStatus: async (userId: string, status: string) => {
     const { data } = await axiosClient.put<ApiResponse<UserItem>>(
       `/admin/users/${userId}/status?status=${encodeURIComponent(status)}`

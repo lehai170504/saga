@@ -1,6 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { academicApi } from "./academicApi";
-import { CreateSemesterPayload, CreateSubjectPayload, CreateClassPayload } from "../types";
+import {
+  CreateSemesterPayload,
+  CreateSubjectPayload,
+  CreateClassPayload,
+  CreateCoursePayload,
+  AddStudentToCoursePayload,
+} from "../types";
 
 export const useSemesters = (page: number, size: number) => {
   return useQuery({
@@ -91,6 +97,51 @@ export const useDeleteClass = () => {
     mutationFn: (id: string) => academicApi.deleteClass(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["classes"] });
+    },
+  });
+};
+
+export const useCourses = (page: number, size: number, search?: string) => {
+  return useQuery({
+    queryKey: ["courses", page, size, search],
+    queryFn: () => academicApi.getCourses(page, size, search),
+  });
+};
+
+export const useCreateCourse = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateCoursePayload) => academicApi.createCourse(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+    },
+  });
+};
+
+export const useDownloadRosterTemplate = () => {
+  return useMutation({
+    mutationFn: (courseId: string) => academicApi.downloadRosterTemplate(courseId),
+  });
+};
+
+export const useAddStudentToCourse = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ courseId, payload }: { courseId: string; payload: AddStudentToCoursePayload }) =>
+      academicApi.addStudentToCourse(courseId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
+    },
+  });
+};
+
+export const useImportRoster = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ courseId, file }: { courseId: string; file: File }) =>
+      academicApi.importRoster(courseId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
     },
   });
 };

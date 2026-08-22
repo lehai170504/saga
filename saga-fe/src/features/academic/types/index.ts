@@ -39,11 +39,27 @@ export interface CreateClassPayload {
 
 export interface Course {
   id: string;
-  courseCode: string;
-  subjectId: string;
+  semesterId?: string;
+  semesterName?: string;
+  subjectId?: string;
+  subjectName?: string;
+  classId?: string;
+  classCode?: string;
+  instructorId?: string;
+  instructorName?: string;
+  courseCode?: string;
+  capacity?: number;
+}
+
+export interface CreateCoursePayload {
   semesterId: string;
+  subjectId: string;
+  classId: string;
   instructorId: string;
-  capacity: number;
+}
+
+export interface AddStudentToCoursePayload {
+  email: string;
 }
 
 export interface SortItem {

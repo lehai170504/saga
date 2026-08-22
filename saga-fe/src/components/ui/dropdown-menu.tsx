@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
 interface DropdownContextType {
   open: boolean;
@@ -94,7 +94,7 @@ function DropdownMenuContent({
   return (
     <div
       className={cn(
-        "absolute top-full mt-2 z-50 min-w-[14rem] overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-1.5 text-slate-800 shadow-xl ring-1 ring-black/5 animate-in fade-in-0 zoom-in-95 duration-100",
+        "absolute top-full mt-2 z-50 min-w-[14rem] overflow-hidden rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-1.5 text-slate-800 dark:text-slate-100 shadow-xl dark:shadow-2xl dark:shadow-slate-950/80 ring-1 ring-black/5 dark:ring-white/10 animate-in fade-in-0 zoom-in-95 duration-100 transition-colors",
         alignStyles,
         className
       )}
@@ -124,8 +124,8 @@ function DropdownMenuItem({
       type="button"
       onClick={handleClick}
       className={cn(
-        "w-full flex cursor-pointer select-none items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:bg-slate-100/80 hover:text-slate-900 focus:bg-slate-100 focus:outline-none",
-        variant === "destructive" && "text-red-600 hover:bg-red-50 hover:text-red-700 focus:bg-red-50 focus:text-red-700",
+        "w-full flex cursor-pointer select-none items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:bg-slate-100/80 hover:text-slate-900 focus:bg-slate-100 focus:outline-none dark:hover:bg-slate-800/80 dark:hover:text-white dark:focus:bg-slate-800",
+        variant === "destructive" && "text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-rose-400 dark:hover:bg-rose-950/50 dark:hover:text-rose-300 dark:focus:bg-rose-950/50",
         className
       )}
       {...props}
@@ -138,14 +138,14 @@ function DropdownMenuItem({
 function DropdownMenuLabel({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("px-3 py-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider", className)}
+      className={cn("px-3 py-1.5 text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider", className)}
       {...props}
     />
   );
 }
 
 function DropdownMenuSeparator({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("-mx-1.5 my-1 h-px bg-slate-100", className)} {...props} />;
+  return <div className={cn("-mx-1.5 my-1 h-px bg-slate-100 dark:bg-slate-800", className)} {...props} />;
 }
 
 export {
