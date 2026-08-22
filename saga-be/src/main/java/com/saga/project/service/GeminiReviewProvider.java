@@ -2,9 +2,9 @@ package com.saga.project.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saga.project.dto.AiReviewResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -12,33 +12,39 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.util.List;
 import java.util.Map;
 
-@Service
+@Service("gemini")
 @Slf4j
-public class AiReviewService {
+public class GeminiReviewProvider implements AiReviewProvider {
 
     private final WebClient webClient;
     private final String apiKey;
+    private final String model;
     private final ObjectMapper objectMapper;
 
-    public AiReviewService(WebClient.Builder webClientBuilder,
-            @Value("${app.ai.grok.api-key:}") String apiKey,
-            @Value("${app.ai.grok.base-url:https://api.x.ai/v1}") String baseUrl,
+    public GeminiReviewProvider(WebClient.Builder webClientBuilder,
+            @Value("${app.ai.gemini.api-key:}") String apiKey,
+            @Value("${app.ai.gemini.base-url:https://generativelanguage.googleapis.com/v1beta/models/}") String baseUrl,
+            @Value("${app.ai.gemini.model:gemini-1.5-flash}") String model,
             ObjectMapper objectMapper) {
         this.webClient = webClientBuilder.baseUrl(baseUrl).build();
         this.apiKey = apiKey;
+        this.model = model;
         this.objectMapper = objectMapper;
     }
 
-    public record AiReviewResult(boolean valid, String reason) {
+    @Override
+    public String getProviderName() {
+        return "gemini";
     }
 
+    @Override
     public AiReviewResult analyzeCommit(String taskDescription, String gitDiff) {
         if (apiKey == null || apiKey.isBlank()) {
-            log.warn("Grok API Key is missing. Skipping AI review.");
+            log.warn("Gemini API Key is missing. Skipping AI review.");
             return new AiReviewResult(true, "Skipped due to missing API key");
         }
 
-        String systemPrompt = """
+        String systemInstruction = """
                 You are a strict Senior Developer performing a Code Review.
                 You must output ONLY a raw JSON object with no markdown formatting.
                 The JSON object must have exactly two fields:
@@ -48,31 +54,38 @@ public class AiReviewService {
 
         String userPrompt = String.format("Task Description:\n%s\n\nGit Diff:\n%s", taskDescription, gitDiff);
 
+        // Gemini API uses a different payload structure than OpenAI/Grok
         Map<String, Object> requestBody = Map.of(
-                "model", "grok-beta",
-                "messages", List.of(
-                        Map.of("role", "system", "content", systemPrompt),
-                        Map.of("role", "user", "content", userPrompt)),
-                "temperature", 0.0);
+                "system_instruction", Map.of(
+                        "parts", Map.of("text", systemInstruction)),
+                "contents", List.of(
+                        Map.of("parts", List.of(Map.of("text", userPrompt)))),
+                "generationConfig", Map.of(
+                        "temperature", 0.0,
+                        "responseMimeType", "application/json"));
 
         try {
             JsonNode response = webClient.post()
-                    .uri("/chat/completions")
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .uri(uriBuilder -> uriBuilder
+                            .path(model + ":generateContent")
+                            .queryParam("key", apiKey)
+                            .build())
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(JsonNode.class)
                     .block();
 
-            if (response != null && response.has("choices")) {
-                String content = response.get("choices").get(0).get("message").get("content").asText();
-                // Strip markdown formatting if AI still outputs it despite the prompt
-                content = content.replace("```json", "").replace("```", "").trim();
-                return objectMapper.readValue(content, AiReviewResult.class);
+            if (response != null && response.has("candidates")) {
+                JsonNode candidate = response.get("candidates").get(0);
+                if (candidate.has("content") && candidate.get("content").has("parts")) {
+                    String content = candidate.get("content").get("parts").get(0).get("text").asText();
+                    content = content.replace("```json", "").replace("```", "").trim();
+                    return objectMapper.readValue(content, AiReviewResult.class);
+                }
             }
         } catch (Exception e) {
-            log.error("Failed to call Grok API", e);
+            log.error("Failed to call Gemini API", e);
             return new AiReviewResult(true, "AI API Error: " + e.getMessage());
         }
 

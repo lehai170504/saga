@@ -4,7 +4,6 @@ import com.saga.project.entity.GitRepo;
 import com.saga.project.entity.Task;
 import com.saga.project.repository.JpaGitRepoRepository;
 import com.saga.project.repository.JpaTaskRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.scheduling.annotation.Async;
@@ -15,17 +14,30 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AiCommitAnalyzerService {
 
     private final JpaGitRepoRepository gitRepoRepository;
     private final JpaTaskRepository taskRepository;
-    private final AiReviewService aiReviewService;
+    private final AiReviewProvider aiReviewProvider;
     private final NotificationService notificationService;
     private final WebClient webClient;
+
+    public AiCommitAnalyzerService(JpaGitRepoRepository gitRepoRepository,
+            JpaTaskRepository taskRepository,
+            Map<String, AiReviewProvider> reviewProviders,
+            @org.springframework.beans.factory.annotation.Value("${app.ai.provider:grok}") String providerName,
+            NotificationService notificationService,
+            WebClient.Builder webClientBuilder) {
+        this.gitRepoRepository = gitRepoRepository;
+        this.taskRepository = taskRepository;
+        this.aiReviewProvider = reviewProviders.getOrDefault(providerName, reviewProviders.get("grok"));
+        this.notificationService = notificationService;
+        this.webClient = webClientBuilder.build();
+    }
 
     private static final Pattern JIRA_KEY_PATTERN = Pattern.compile("([A-Z]+-[0-9]+)");
 
@@ -63,8 +75,8 @@ public class AiCommitAnalyzerService {
             return;
         }
 
-        // Call Grok AI
-        AiReviewService.AiReviewResult result = aiReviewService.analyzeCommit(taskDescription, gitDiff);
+        // Call AI
+        com.saga.project.dto.AiReviewResult result = aiReviewProvider.analyzeCommit(taskDescription, gitDiff);
 
         if (!result.valid()) {
             log.warn("AI detected invalid commit {}: {}", commitHash, result.reason());

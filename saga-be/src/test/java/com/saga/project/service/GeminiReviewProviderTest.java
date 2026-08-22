@@ -1,6 +1,7 @@
 package com.saga.project.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.saga.project.dto.AiReviewResult;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterEach;
@@ -12,10 +13,10 @@ import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class AiReviewServiceTest {
+class GeminiReviewProviderTest {
 
     private MockWebServer mockWebServer;
-    private AiReviewService aiReviewService;
+    private GeminiReviewProvider geminiReviewProvider;
 
     @BeforeEach
     void setUp() throws IOException {
@@ -24,7 +25,8 @@ class AiReviewServiceTest {
 
         WebClient.Builder webClientBuilder = WebClient.builder();
         ObjectMapper objectMapper = new ObjectMapper();
-        aiReviewService = new AiReviewService(webClientBuilder, "dummy-api-key", mockWebServer.url("/").toString(), objectMapper);
+        geminiReviewProvider = new GeminiReviewProvider(webClientBuilder, "dummy-api-key",
+                mockWebServer.url("/").toString(), "gemini-1.5-flash", objectMapper);
     }
 
     @AfterEach
@@ -34,34 +36,35 @@ class AiReviewServiceTest {
 
     @Test
     void testAnalyzeCommit_ValidResponse() {
-        String mockResponse = "{\"id\":\"chatcmpl-123\",\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"valid\\\": true, \\\"reason\\\": \\\"Code implements the requested feature properly.\\\"}\"}}]}";
+        String mockResponse = "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"{\\\"valid\\\": true, \\\"reason\\\": \\\"Code is good.\\\"}\"}]}}]}";
         mockWebServer.enqueue(new MockResponse()
                 .setBody(mockResponse)
                 .addHeader("Content-Type", "application/json"));
 
-        AiReviewService.AiReviewResult result = aiReviewService.analyzeCommit("Fix login bug", "diff --git a/file b/file");
+        AiReviewResult result = geminiReviewProvider.analyzeCommit("Task", "Diff");
 
         assertTrue(result.valid());
-        assertEquals("Code implements the requested feature properly.", result.reason());
+        assertEquals("Code is good.", result.reason());
     }
 
     @Test
     void testAnalyzeCommit_InvalidResponse() {
-        String mockResponse = "{\"id\":\"chatcmpl-123\",\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"```json\\n{\\\"valid\\\": false, \\\"reason\\\": \\\"Code doesn't match Jira description.\\\"}\\n```\"}}]}";
+        String mockResponse = "{\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"```json\\n{\\\"valid\\\": false, \\\"reason\\\": \\\"Bad code.\\\"}\\n```\"}]}}]}";
         mockWebServer.enqueue(new MockResponse()
                 .setBody(mockResponse)
                 .addHeader("Content-Type", "application/json"));
 
-        AiReviewService.AiReviewResult result = aiReviewService.analyzeCommit("Fix login bug", "diff --git a/file b/file");
+        AiReviewResult result = geminiReviewProvider.analyzeCommit("Task", "Diff");
 
         assertFalse(result.valid());
-        assertEquals("Code doesn't match Jira description.", result.reason());
+        assertEquals("Bad code.", result.reason());
     }
 
     @Test
     void testAnalyzeCommit_MissingApiKey() {
-        AiReviewService serviceWithoutKey = new AiReviewService(WebClient.builder(), "", mockWebServer.url("/").toString(), new ObjectMapper());
-        AiReviewService.AiReviewResult result = serviceWithoutKey.analyzeCommit("Task", "Diff");
+        GeminiReviewProvider serviceWithoutKey = new GeminiReviewProvider(WebClient.builder(), "",
+                mockWebServer.url("/").toString(), "gemini-1.5-flash", new ObjectMapper());
+        AiReviewResult result = serviceWithoutKey.analyzeCommit("Task", "Diff");
 
         assertTrue(result.valid());
         assertEquals("Skipped due to missing API key", result.reason());
