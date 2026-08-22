@@ -40,9 +40,6 @@ public class ProjectIntegrationController {
                 .orElseThrow(() -> new UnauthorizedException("User not found"));
     }
 
-    // ==========================================
-    // JIRA
-    // ==========================================
 
     @GetMapping("/jira/connect")
     @Operation(summary = "Get Jira Connect URL", description = "Generates the OAuth URL to redirect the Team Leader to Jira for authorization. Requires teamId.")
@@ -90,9 +87,6 @@ public class ProjectIntegrationController {
         return ResponseEntity.ok(ApiResponse.success(null, "Jira unlinked successfully"));
     }
 
-    // ==========================================
-    // GITHUB
-    // ==========================================
 
     @GetMapping("/github/install")
     @Operation(summary = "Get GitHub Install URL", description = "Generates the URL to redirect the Team Leader to GitHub App Installation page. Requires teamId.")

@@ -40,7 +40,6 @@ public class CourseServiceTest {
 
     @Test
     void createCourse_HappyPath_CreatesSuccessfully() {
-        // Arrange
         UUID semesterId = UUID.randomUUID();
         UUID subjectId = UUID.randomUUID();
         UUID classId = UUID.randomUUID();
@@ -64,10 +63,8 @@ public class CourseServiceTest {
 
         when(courseRepository.save(any(Course.class))).thenReturn(savedCourse);
 
-        // Act
         CourseResponse response = courseService.createCourse(request);
 
-        // Assert
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(savedCourse.getId());
         verify(courseRepository, times(1)).save(any(Course.class));
@@ -75,7 +72,6 @@ public class CourseServiceTest {
 
     @Test
     void createCourse_ExceptionPath_DuplicateCombination() {
-        // Arrange
         UUID semesterId = UUID.randomUUID();
         UUID subjectId = UUID.randomUUID();
         UUID classId = UUID.randomUUID();
@@ -89,11 +85,9 @@ public class CourseServiceTest {
         when(subjectRepository.existsById(subjectId)).thenReturn(true);
         when(classRepository.existsById(classId)).thenReturn(true);
 
-        // Mock returning true for exists
         when(courseRepository.existsBySemesterIdAndSubjectIdAndClassId(semesterId, subjectId, classId))
                 .thenReturn(true);
 
-        // Act & Assert
         BadRequestException exception = assertThrows(BadRequestException.class, () -> {
             courseService.createCourse(request);
         });

@@ -38,6 +38,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import com.saga.project.entity.IntegrationStatus;
+import com.saga.user.entity.Role;
 
 @Service
 @RequiredArgsConstructor
@@ -59,13 +61,13 @@ public class DashboardService {
 
     @Cacheable(value = "dashboard:admin", key = "'global'")
     public AdminDashboardResponse getAdminDashboard() {
-        boolean githubActive = gitRepoRepository.countByStatus(com.saga.project.entity.IntegrationStatus.LINKED) > 0;
-        boolean jiraActive = jiraBoardRepository.countByStatus(com.saga.project.entity.IntegrationStatus.LINKED) > 0;
+        boolean githubActive = gitRepoRepository.countByStatus(IntegrationStatus.LINKED) > 0;
+        boolean jiraActive = jiraBoardRepository.countByStatus(IntegrationStatus.LINKED) > 0;
 
         return AdminDashboardResponse.builder()
                 .totalUsers((int) userRepository.count())
-                .totalStudents((int) userRepository.countByRole(com.saga.user.entity.Role.STUDENT))
-                .totalLecturers((int) userRepository.countByRole(com.saga.user.entity.Role.LECTURER))
+                .totalStudents((int) userRepository.countByRole(Role.STUDENT))
+                .totalLecturers((int) userRepository.countByRole(Role.LECTURER))
                 .totalClasses((int) classRepository.count())
                 .totalProjects((int) jiraBoardRepository.count())
                 .totalCommitsSynced((int) commitDataRepository.count())
@@ -80,10 +82,10 @@ public class DashboardService {
     public LecturerDashboardResponse getLecturerDashboard(UUID lecturerId) {
         List<java.time.LocalDateTime> taskDates = taskRepository.findTaskCompletedDatesByInstructorId(lecturerId);
         List<java.time.LocalDateTime> commitDates = commitDataRepository.findCommitDatesByInstructorId(lecturerId);
-        
+
         Map<String, Integer> heatmap = new HashMap<>();
         java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        
+
         for (java.time.LocalDateTime dt : taskDates) {
             String dateStr = dt.format(formatter);
             heatmap.put(dateStr, heatmap.getOrDefault(dateStr, 0) + 1);
@@ -102,7 +104,7 @@ public class DashboardService {
                 .totalEnrolledStudents(enrolledStudents)
                 .isolatedStudentsCount(isolatedStudents)
                 .heatmapActivity(heatmap)
-                .snaGraph(GraphDataDTO.builder().nodes(Collections.emptyList()).edges(Collections.emptyList()).build()) // Require specific Cypher graph retrieval later
+                .snaGraph(GraphDataDTO.builder().nodes(Collections.emptyList()).edges(Collections.emptyList()).build()) // Require
                 .build();
     }
 
@@ -130,20 +132,21 @@ public class DashboardService {
 
             if (activeTeam != null) {
                 final UUID activeTeamId = activeTeam.getId();
-                JiraBoard board = jiraBoardRepository.findAll().stream().filter(b -> b.getTeamId().equals(activeTeamId))
-                        .findFirst().orElse(null);
+                JiraBoard board = jiraBoardRepository.findByTeamId(activeTeamId).orElse(null);
                 if (board != null) {
                     List<Task> tasks = taskRepository.findByBoardId(board.getId(), Pageable.unpaged()).getContent();
                     List<TaskWeightConfig> weights = taskWeightConfigRepository.findByCourseId(courseId);
 
                     List<TeamMember> teamMembers = teamMemberRepository.findByTeamId(activeTeam.getId());
                     List<PeerReview> peerReviews = new ArrayList<>();
+                    List<UUID> teamMemberIds = new ArrayList<>();
                     for (TeamMember tm : teamMembers) {
                         peerReviews.addAll(peerReviewRepository.findByRevieweeId(tm.getStudentId()));
+                        teamMemberIds.add(tm.getStudentId());
                     }
 
                     List<StudentContributionDTO> pieResults = SlicingPieCalculator.calculate(tasks, weights,
-                            peerReviews);
+                            peerReviews, teamMemberIds);
                     pieSlice = pieResults.stream().filter(p -> p.getStudentId().equals(studentId)).findFirst()
                             .orElse(null);
                 }
@@ -171,20 +174,21 @@ public class DashboardService {
             }
             if (activeTeam != null) {
                 final UUID activeTeamId = activeTeam.getId();
-                JiraBoard board = jiraBoardRepository.findAll().stream().filter(b -> b.getTeamId().equals(activeTeamId)).findFirst().orElse(null);
+                JiraBoard board = jiraBoardRepository.findByTeamId(activeTeamId).orElse(null);
                 if (board != null) {
                     List<Task> allTasks = taskRepository.findByBoardId(board.getId(), Pageable.unpaged()).getContent();
                     for (Task t : allTasks) {
                         if (studentId.equals(t.getAssigneeId()) && t.getLabels() != null) {
                             for (String label : t.getLabels()) {
-                                radar.put(label, radar.getOrDefault(label, 0.0) + (t.getStoryPoint() != null ? t.getStoryPoint() : 1.0));
+                                radar.put(label, radar.getOrDefault(label, 0.0)
+                                        + (t.getStoryPoint() != null ? t.getStoryPoint() : 1.0));
                             }
                         }
                     }
                 }
             }
         }
-        
+
         if (radar.isEmpty()) {
             radar.put("Code", 0.0);
             radar.put("Test", 0.0);

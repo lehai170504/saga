@@ -14,7 +14,6 @@ public class StudentDashboardResponse {
     private Map<String, Double> radarChartSkills; // Code, Test, Doc, Research
     private GraphDataDTO traceabilityGraph; // Neo4j Graph Data
     
-    // Additional basic info
     private int totalCommits;
     private int totalTasksCompleted;
 }

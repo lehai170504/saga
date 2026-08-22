@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
+import com.saga.shared.exception.BadRequestException;
+import com.saga.identity.service.ExternalUserProfile;
 
 @Service
 public class IdentityService {
@@ -30,7 +32,15 @@ public class IdentityService {
 
     @Transactional
     public void linkGithub(UUID userId, String code) {
-        com.saga.identity.service.ExternalUserProfile profile = externalIdentityPort.getGithubProfile(code);
+        ExternalUserProfile profile = externalIdentityPort.getGithubProfile(code);
+
+        java.util.Optional<IdentityMap> existingMap = identityMapRepository
+                .findByExternalIdAndExternalProvider(profile.getId(), ExternalProvider.GITHUB);
+        if (existingMap.isPresent() && !existingMap.get().getInternalUserId().equals(userId)) {
+            throw new BadRequestException(
+                    "This Github account is already linked to another user");
+        }
+
         identityMapRepository.deleteByInternalUserIdAndExternalProvider(userId, ExternalProvider.GITHUB);
         IdentityMap map = IdentityMap.builder().id(UUID.randomUUID()).internalUserId(userId)
                 .externalProvider(ExternalProvider.GITHUB).externalId(profile.getId())
@@ -40,7 +50,15 @@ public class IdentityService {
 
     @Transactional
     public void linkJira(UUID userId, String code) {
-        com.saga.identity.service.ExternalUserProfile profile = externalIdentityPort.getJiraProfile(code);
+        ExternalUserProfile profile = externalIdentityPort.getJiraProfile(code);
+
+        java.util.Optional<IdentityMap> existingMap = identityMapRepository
+                .findByExternalIdAndExternalProvider(profile.getId(), ExternalProvider.JIRA);
+        if (existingMap.isPresent() && !existingMap.get().getInternalUserId().equals(userId)) {
+            throw new BadRequestException(
+                    "This Jira account is already linked to another user");
+        }
+
         identityMapRepository.deleteByInternalUserIdAndExternalProvider(userId, ExternalProvider.JIRA);
         IdentityMap map = IdentityMap.builder().id(UUID.randomUUID()).internalUserId(userId)
                 .externalProvider(ExternalProvider.JIRA).externalId(profile.getId())
@@ -48,4 +66,3 @@ public class IdentityService {
         identityMapRepository.save(map);
     }
 }
-

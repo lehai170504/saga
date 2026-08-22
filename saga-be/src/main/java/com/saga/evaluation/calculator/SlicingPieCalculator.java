@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 public class SlicingPieCalculator {
 
     public static List<StudentContributionDTO> calculate(List<Task> tasks, List<TaskWeightConfig> weights,
-            List<PeerReview> peerReviews) {
+            List<PeerReview> peerReviews, List<UUID> teamMemberIds) {
         Map<String, Double> weightMap = weights.stream()
                 .collect(Collectors.toMap(TaskWeightConfig::getLabelKey, TaskWeightConfig::getWeightPercentage));
 
@@ -28,6 +28,9 @@ public class SlicingPieCalculator {
         Set<UUID> allStudentIds = new HashSet<>();
         allStudentIds.addAll(tasksByStudent.keySet());
         allStudentIds.addAll(reviewsByStudent.keySet());
+        if (teamMemberIds != null) {
+            allStudentIds.addAll(teamMemberIds);
+        }
 
         for (UUID studentId : allStudentIds) {
             double basePoints = 0.0;
@@ -38,12 +41,18 @@ public class SlicingPieCalculator {
                     continue;
 
                 double taskWeight = 0.0;
+                boolean hasMappedLabel = false;
                 if (task.getLabels() != null) {
                     for (String label : task.getLabels()) {
                         if (weightMap.containsKey(label)) {
                             taskWeight += weightMap.get(label) / 100.0;
+                            hasMappedLabel = true;
                         }
                     }
+                }
+
+                if (!hasMappedLabel || taskWeight == 0.0) {
+                    taskWeight = 1.0;
                 }
                 basePoints += task.getStoryPoint() * taskWeight;
             }

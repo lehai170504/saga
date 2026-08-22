@@ -71,7 +71,6 @@ public class GithubAppAuthService {
     }
 
         private PrivateKey getPrivateKeyFromString(String keyString) throws Exception {
-        // Replace escaped literal newlines if passed improperly
         keyString = keyString.replace("\\n", "\n");
         try (java.io.StringReader keyReader = new java.io.StringReader(keyString)) {
             return parsePrivateKey(keyReader);

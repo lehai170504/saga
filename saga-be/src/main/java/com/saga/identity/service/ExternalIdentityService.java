@@ -1,6 +1,5 @@
 package com.saga.identity.service;
 
-import com.saga.identity.service.ExternalIdentityService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
@@ -8,6 +7,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Map;
+import com.saga.identity.service.ExternalUserProfile;
 
 @Component
 public class ExternalIdentityService {
@@ -23,7 +23,7 @@ public class ExternalIdentityService {
         @Value("${app.jira.redirect-uri:}")
         private String jiraRedirectUri;
 
-        public com.saga.identity.service.ExternalUserProfile getGithubProfile(String code) {
+        public ExternalUserProfile getGithubProfile(String code) {
                 HttpHeaders headers = new HttpHeaders();
                 headers.setAccept(List.of(MediaType.APPLICATION_JSON));
                 Map<String, String> request = Map.of("client_id", githubClientId, "client_secret", githubClientSecret,
@@ -48,10 +48,10 @@ public class ExternalIdentityService {
                 if (name == null || name.isEmpty())
                         name = (String) userResponse.getBody().get("login");
                 String id = String.valueOf(userResponse.getBody().get("id"));
-                return com.saga.identity.service.ExternalUserProfile.builder().id(id).name(name).email(email).build();
+                return ExternalUserProfile.builder().id(id).name(name).email(email).build();
         }
 
-        public com.saga.identity.service.ExternalUserProfile getJiraProfile(String code) {
+        public ExternalUserProfile getJiraProfile(String code) {
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
                 Map<String, String> request = Map.of("grant_type", "authorization_code", "client_id", jiraClientId,
@@ -66,6 +66,6 @@ public class ExternalIdentityService {
                 String email = (String) meResponse.getBody().get("email");
                 String name = (String) meResponse.getBody().get("name");
                 String id = (String) meResponse.getBody().get("account_id");
-                return com.saga.identity.service.ExternalUserProfile.builder().id(id).name(name).email(email).build();
+                return ExternalUserProfile.builder().id(id).name(name).email(email).build();
         }
 }

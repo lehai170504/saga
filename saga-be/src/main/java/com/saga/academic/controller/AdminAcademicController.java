@@ -1,6 +1,5 @@
 package com.saga.academic.controller;
 
-import com.saga.academic.dto.CreateCourseRequest;
 import com.saga.academic.dto.CreateSemesterRequest;
 import com.saga.academic.service.MasterDataService;
 import com.saga.academic.entity.Semester;

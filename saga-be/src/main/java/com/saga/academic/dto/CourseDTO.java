@@ -17,5 +17,4 @@ public class CourseDTO {
     private UUID subjectId;
     private UUID classId;
     private UUID instructorId;
-    // We will leave these as basic UUIDs for now, unless we want to join user/subject tables
 }
