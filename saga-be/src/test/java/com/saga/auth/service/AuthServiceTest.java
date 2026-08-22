@@ -43,6 +43,9 @@ public class AuthServiceTest {
     @Mock
     private JwtProviderService jwtProviderPort;
 
+    @Mock
+    private com.saga.project.service.SystemAuditLogService auditLogService;
+
     @InjectMocks
     private AuthService authService;
 
