@@ -4,14 +4,37 @@ export interface Semester {
   name: string;
   startDate: string;
   endDate: string;
-  active: boolean;
+  active?: boolean;
+  isActive?: boolean;
+}
+
+export interface CreateSemesterPayload {
+  code: string;
+  name: string;
+  startDate: string;
+  endDate: string;
 }
 
 export interface Subject {
   id: string;
-  code: string;
-  name: string;
-  credits: number;
+  subjectCode: string;
+  subjectName: string;
+  code?: string;
+  name?: string;
+}
+
+export interface CreateSubjectPayload {
+  subjectCode: string;
+  subjectName: string;
+}
+
+export interface AcademicClass {
+  id: string;
+  classCode: string;
+}
+
+export interface CreateClassPayload {
+  classCode: string;
 }
 
 export interface Course {
@@ -56,6 +79,6 @@ export interface PageResponse<T> {
 
 export interface ApiResponse<T> {
   status: number;
-  message: string;
+  message?: string;
   data: T;
 }
