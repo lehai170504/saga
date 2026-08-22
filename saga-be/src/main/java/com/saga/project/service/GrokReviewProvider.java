@@ -82,4 +82,46 @@ public class GrokReviewProvider implements AiReviewProvider {
 
         return new AiReviewResult(true, "Default fallback");
     }
+
+    @Override
+    public String generateProgressReport(String prompt) {
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("Grok API Key is missing. Skipping report generation.");
+            return "AI Report generation is unavailable because the API key is missing.";
+        }
+
+        String systemPrompt = """
+                You are an AI assistant helping a Lecturer and a student Team analyze their software project progress.
+                You will be provided with a list of recent Jira tasks and Git commits.
+                Generate a concise, insightful Markdown progress report in Vietnamese.
+                Highlight what is done, what is pending, and any potential risks or blocked items.
+                """;
+
+        Map<String, Object> requestBody = Map.of(
+                "model", "grok-beta",
+                "messages", List.of(
+                        Map.of("role", "system", "content", systemPrompt),
+                        Map.of("role", "user", "content", prompt)),
+                "temperature", 0.3);
+
+        try {
+            JsonNode response = webClient.post()
+                    .uri("/chat/completions")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            if (response != null && response.has("choices")) {
+                return response.get("choices").get(0).get("message").get("content").asText();
+            }
+        } catch (Exception e) {
+            log.error("Failed to call Grok API for progress report", e);
+            return "Error generating report: " + e.getMessage();
+        }
+
+        return "Failed to generate AI progress report.";
+    }
 }

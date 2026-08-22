@@ -43,6 +43,15 @@ class TraceabilitySyncServiceTest {
     @Mock
     private JpaTaskCommitLinkRepository taskCommitLinkRepository;
 
+    @Mock
+    private AiCommitAnalyzerService aiCommitAnalyzerService;
+
+    @Mock
+    private com.saga.project.repository.JpaJiraBoardRepository jiraBoardRepository;
+
+    @Mock
+    private com.saga.shared.service.CloudinaryService cloudinaryService;
+
     @InjectMocks
     private TraceabilitySyncService traceabilitySyncService;
 

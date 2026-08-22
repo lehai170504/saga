@@ -21,60 +21,77 @@ import java.util.UUID;
 @Tag(name = "06. Lecturer - Project Progress APIs", description = "Endpoints for Lecturers to view team project progress")
 public class LecturerProjectController {
 
-    private final ProjectDataQueryService queryService;
+        private final ProjectDataQueryService queryService;
 
-    public LecturerProjectController(ProjectDataQueryService queryService) {
-        this.queryService = queryService;
-    }
+        public LecturerProjectController(ProjectDataQueryService queryService) {
+                this.queryService = queryService;
+        }
 
-    @GetMapping("/metrics")
-    @Operation(summary = "Get Project Metrics", description = "Fetches overall statistics (Total Tasks, Total Commits) and integration status (Jira/GitHub synced) for a specific team.")
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fetched metrics successfully"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this team's course")
-    })
-    public ResponseEntity<ApiResponse<ProjectMetricsDTO>> getMetrics(
-            @PathVariable UUID teamId, Authentication auth) {
-        UUID userId = UUID.fromString(auth.getPrincipal().toString());
-        queryService.authorizeProjectAccess(userId, teamId, "LECTURER");
+        @GetMapping("/metrics")
+        @Operation(summary = "Get Project Metrics", description = "Fetches overall statistics (Total Tasks, Total Commits) and integration status (Jira/GitHub synced) for a specific team.")
+        @ApiResponses({
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fetched metrics successfully"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this team's course")
+        })
+        public ResponseEntity<ApiResponse<ProjectMetricsDTO>> getMetrics(
+                        @PathVariable UUID teamId, Authentication auth) {
+                UUID userId = UUID.fromString(auth.getPrincipal().toString());
+                queryService.authorizeProjectAccess(userId, teamId, "LECTURER");
 
-        return ResponseEntity.ok(ApiResponse.success(
-                queryService.getProjectMetrics(teamId),
-                "Lấy thông số thành công"));
-    }
+                return ResponseEntity.ok(ApiResponse.success(
+                                queryService.getProjectMetrics(teamId),
+                                "Lấy thông số thành công"));
+        }
 
-    @GetMapping("/tasks")
-    @Operation(summary = "Get Team Tasks (Paginated)", description = "Fetches a paginated list of Jira tasks assigned to this team.")
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fetched tasks successfully"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this team's course")
-    })
-    public ResponseEntity<ApiResponse<Page<TaskDTO>>> getTasks(
-            @PathVariable UUID teamId, Pageable pageable, Authentication auth) {
-        UUID userId = UUID.fromString(auth.getPrincipal().toString());
-        queryService.authorizeProjectAccess(userId, teamId, "LECTURER");
+        @GetMapping("/tasks")
+        @Operation(summary = "Get Team Tasks (Paginated)", description = "Fetches a paginated list of Jira tasks assigned to this team.")
+        @ApiResponses({
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fetched tasks successfully"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this team's course")
+        })
+        public ResponseEntity<ApiResponse<Page<TaskDTO>>> getTasks(
+                        @PathVariable UUID teamId, Pageable pageable, Authentication auth) {
+                UUID userId = UUID.fromString(auth.getPrincipal().toString());
+                queryService.authorizeProjectAccess(userId, teamId, "LECTURER");
 
-        return ResponseEntity.ok(ApiResponse.success(
-                queryService.getTeamTasks(teamId, pageable),
-                "Lấy danh sách task thành công"));
-    }
+                return ResponseEntity.ok(ApiResponse.success(
+                                queryService.getTeamTasks(teamId, pageable),
+                                "Lấy danh sách task thành công"));
+        }
 
-    @GetMapping("/commits")
-    @Operation(summary = "Get Team Commits (Paginated)", description = "Fetches a paginated list of GitHub commits pushed by this team.")
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fetched commits successfully"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this team's course")
-    })
-    public ResponseEntity<ApiResponse<Page<CommitDTO>>> getCommits(
-            @PathVariable UUID teamId, Pageable pageable, Authentication auth) {
-        UUID userId = UUID.fromString(auth.getPrincipal().toString());
-        queryService.authorizeProjectAccess(userId, teamId, "LECTURER");
+        @GetMapping("/commits")
+        @Operation(summary = "Get Team Commits (Paginated)", description = "Fetches a paginated list of GitHub commits pushed by this team.")
+        @ApiResponses({
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Fetched commits successfully"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this team's course")
+        })
+        public ResponseEntity<ApiResponse<Page<CommitDTO>>> getCommits(
+                        @PathVariable UUID teamId, Pageable pageable, Authentication auth) {
+                UUID userId = UUID.fromString(auth.getPrincipal().toString());
+                queryService.authorizeProjectAccess(userId, teamId, "LECTURER");
 
-        return ResponseEntity.ok(ApiResponse.success(
-                queryService.getTeamCommits(teamId, pageable),
-                "Lấy danh sách commit thành công"));
-    }
+                return ResponseEntity.ok(ApiResponse.success(
+                                queryService.getTeamCommits(teamId, pageable),
+                                "Lấy danh sách commit thành công"));
+        }
+
+        @GetMapping("/ai-progress")
+        @Operation(summary = "Get AI Progress Report", description = "Generates a markdown progress report for the team using AI.")
+        @ApiResponses({
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Generated report successfully"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
+                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Not the lecturer of this team's course")
+        })
+        public ResponseEntity<ApiResponse<String>> getAiProgressReport(
+                        @PathVariable UUID teamId, Authentication auth,
+                        @org.springframework.beans.factory.annotation.Autowired com.saga.project.service.AiProgressReportService aiProgressReportService) {
+                UUID userId = UUID.fromString(auth.getPrincipal().toString());
+                queryService.authorizeProjectAccess(userId, teamId, "LECTURER");
+
+                String report = aiProgressReportService.generateReport(teamId);
+                return ResponseEntity.ok(ApiResponse.success(report, "Tạo báo cáo tiến độ thành công"));
+        }
 }
