@@ -72,19 +72,6 @@ public class AdminAcademicController {
         return ResponseEntity.ok(ApiResponse.success(semester, "Semester created successfully"));
     }
 
-    @PutMapping("/semesters/{semesterId}/active")
-    @Operation(summary = "Set Active Semester", description = "Admin changes the currently active semester. This deactivates the previous active semester.")
-    @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Active semester updated successfully"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Semester not found"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Unauthorized"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Forbidden - Requires ADMIN role")
-    })
-    public ResponseEntity<ApiResponse<Void>> setActiveSemester(@PathVariable UUID semesterId) {
-        masterDataService.setActiveSemester(semesterId);
-        return ResponseEntity.ok(ApiResponse.success(null, "Active semester updated successfully"));
-    }
-
     @PostMapping("/courses")
     @Operation(summary = "Create Course & Assign Lecturer", description = "Admin creates a new course and assigns it to a lecturer for the current active semester.")
     @ApiResponses({

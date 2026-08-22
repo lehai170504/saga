@@ -3,9 +3,7 @@ package com.saga.academic.service;
 import com.saga.academic.dto.CreateCourseRequest;
 import com.saga.academic.dto.CreateSemesterRequest;
 import com.saga.academic.entity.Semester;
-import com.saga.academic.entity.ActiveSemesterSetting;
 import com.saga.academic.entity.Course;
-import com.saga.academic.repository.JpaActiveSemesterRepository;
 import com.saga.academic.repository.JpaCourseRepository;
 import com.saga.academic.repository.JpaSemesterRepository;
 import org.springframework.stereotype.Service;
@@ -16,13 +14,10 @@ import java.util.UUID;
 public class MasterDataService {
     private final JpaSemesterRepository semesterRepository;
     private final JpaCourseRepository courseRepository;
-    private final JpaActiveSemesterRepository activeSemesterRepository;
 
-    public MasterDataService(JpaSemesterRepository semesterRepository, JpaCourseRepository courseRepository,
-            JpaActiveSemesterRepository activeSemesterRepository) {
+    public MasterDataService(JpaSemesterRepository semesterRepository, JpaCourseRepository courseRepository) {
         this.semesterRepository = semesterRepository;
         this.courseRepository = courseRepository;
-        this.activeSemesterRepository = activeSemesterRepository;
     }
 
     @Transactional
@@ -46,22 +41,8 @@ public class MasterDataService {
         if (courseRepository.countBySemesterId(semesterId) > 0) {
             throw new IllegalArgumentException("Cannot delete semester that contains courses");
         }
-        activeSemesterRepository.findAll().stream()
-                .filter(setting -> setting.getSemesterId().equals(semesterId))
-                .forEach(activeSemesterRepository::delete);
 
         semesterRepository.deleteById(semesterId);
-    }
-
-    @Transactional
-    public void setActiveSemester(UUID semesterId) {
-        if (!semesterRepository.existsById(semesterId)) {
-            throw new IllegalArgumentException("Semester does not exist");
-        }
-        activeSemesterRepository.deleteAll();
-        ActiveSemesterSetting setting = new ActiveSemesterSetting();
-        setting.setSemesterId(semesterId);
-        activeSemesterRepository.save(setting);
     }
 
     @Transactional
