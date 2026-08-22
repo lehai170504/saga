@@ -2,7 +2,9 @@ import { axiosClient } from '@/lib/axios';
 
 export interface AuthResponse {
   accessToken: string;
+  refreshToken?: string;
   role: string;
+  user?: UserProfileDTO;
 }
 
 export interface UserProfileDTO {
@@ -17,9 +19,24 @@ export interface CsrfTokenResponse {
   headerName: string;
 }
 
+export interface LoginLocalDTO {
+  email: string;
+  password: string;
+}
+
 export const authApi = {
   loginWithGoogle: (idToken: string) => {
     return axiosClient.post<{ data: AuthResponse }>('/auth/login', { idToken });
+  },
+
+  loginLocal: (data: LoginLocalDTO) => {
+    return axiosClient.post<{ data: AuthResponse }>('/auth/login-local', data);
+  },
+
+  refreshToken: (token: string) => {
+    return axiosClient.post<{ data: AuthResponse }>('/auth/refresh', null, {
+      params: { token }
+    });
   },
 
   getMe: () => {

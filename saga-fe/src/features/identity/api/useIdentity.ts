@@ -20,7 +20,7 @@ export const useIdentity = () => {
   const unlinkMutation = useMutation({
     mutationFn: (provider: 'GITHUB' | 'JIRA') => identityApi.unlinkIdentity(provider),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['my-identities'] });
+      queryClient.invalidateQueries({ queryKey: ['identities'] });
     }
   });
 
