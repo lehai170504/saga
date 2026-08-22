@@ -117,6 +117,24 @@ public class AdminAcademicController {
         return ResponseEntity.ok(ApiResponse.success(null, "Roster imported successfully"));
     }
 
+    @PostMapping("/courses/{courseId}/students")
+    @Operation(summary = "Add a single student to course", description = "Manually add a single student without Excel")
+    public ResponseEntity<ApiResponse<Void>> addStudentToCourse(
+            @PathVariable UUID courseId,
+            @Valid @RequestBody AddStudentRequest request) {
+        courseRosterService.addStudentToCourse(courseId, request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(null, "Student added to course"));
+    }
+
+    @DeleteMapping("/courses/{courseId}/students/{studentId}")
+    @Operation(summary = "Remove a student from course", description = "Removes a student and cascades deletion of team member")
+    public ResponseEntity<ApiResponse<Void>> removeStudentFromCourse(
+            @PathVariable UUID courseId,
+            @PathVariable UUID studentId) {
+        courseRosterService.removeStudentFromCourse(studentId, courseId);
+        return ResponseEntity.ok(ApiResponse.success(null, "Student removed from course"));
+    }
+
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/subjects")
     @Operation(summary = "Create Subject")

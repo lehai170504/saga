@@ -1,5 +1,6 @@
 package com.saga.shared.config;
 
+import jakarta.servlet.http.HttpServletResponse;
 import com.saga.shared.security.JwtAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,13 +36,20 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/login-local", "/api/v1/auth/dev-login", "/api/v1/auth/refresh", "/api/v1/auth/csrf", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/api/v1/webhooks/**", "/ws/**")
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/login-local", "/api/v1/auth/dev-login",
+                                "/api/v1/auth/refresh", "/api/v1/auth/csrf", "/v3/api-docs/**", "/swagger-ui/**",
+                                "/swagger-ui.html", "/api/v1/webhooks/**", "/ws/**")
                         .permitAll()
                         .anyRequest().authenticated())
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, authException.getMessage());
+                        }))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();

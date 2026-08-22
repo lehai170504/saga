@@ -18,6 +18,8 @@ public interface JpaCourseStudentRepository
         extends JpaRepository<CourseStudent, UUID>, JpaSpecificationExecutor<CourseStudent> {
     Optional<CourseStudent> findByCourseIdAndStudentId(UUID courseId, UUID studentId);
 
+    java.util.List<CourseStudent> findByCourseId(UUID courseId);
+
     @Query("SELECT c FROM Course c INNER JOIN CourseStudent cs ON c.id = cs.courseId WHERE cs.studentId = :studentId")
     Page<Course> findCoursesByStudentId(@Param("studentId") UUID studentId, Pageable pageable);
 
